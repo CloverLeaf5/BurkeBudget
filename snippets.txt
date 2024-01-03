@@ -1,0 +1,16 @@
+INPUT A DEFAULT USER INTO THE USER TABLE    
+    // let pretend_user = User {
+    //     username: String::from("PATRICKBURKE"),
+    //     username_lower: String::from("patrickburke"),
+    //     firstname: String::from("PATRICK"),
+    //     lastname: String::from("BURKE"),
+    // };
+    // conn.execute(
+    //     "INSERT INTO users (username, username_lower, firstname, lastname) VALUES (?1, ?2, ?3, ?4)",
+    //     (
+    //         &pretend_user.username,
+    //         &pretend_user.username_lower,
+    //         &pretend_user.firstname,
+    //         &pretend_user.lastname,
+    //     ),
+    // )?;

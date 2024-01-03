@@ -1,7 +1,8 @@
 use rusqlite::{Connection, Result};
 
-mod db;
-pub use db::*;
+mod login;
+mod menu;
+mod structs_utils;
 
 fn write_welcome() {
     println!("||PBPB\\\\");
@@ -14,6 +15,7 @@ fn write_welcome() {
     println!("||TBTB///");
     println!("");
     println!("Welcome to the Burke Budget App!");
+    println!("\nType \"quit\" to quit at any time. This will also logout the current user\n");
 }
 
 fn main() -> Result<()> {
@@ -22,31 +24,23 @@ fn main() -> Result<()> {
     write_welcome();
 
     let conn = Connection::open(DB_PATH)?;
+    // Turn on foreign keys
+    conn.execute("PRAGMA foreign_keys = ON", ())
+        .expect("Error turning on foreign keys");
 
-    let username = db::login(&conn);
-    println!("User returned is: {}", username);
+    // Login the user
+    let user_result = login::login(&conn);
+    match user_result {
+        Err(error) => println!("There was an error with login: {}", error),
+        Ok(user) => {
+            println!("\nWelcome {}", user.fullname());
+            // Display the menu
+            // The menu will handle the rest of the functionality until the user quits
+            menu::main_menu(conn, user);
+        }
+    }
+
+    // Close the application by returning a Result
+    println!("Your budget is saved, and you have been logged out. See you next time!");
     Ok(())
-
-    // let me = Person {
-    //     id: 0,
-    //     name: "Steven".to_string(),
-    //     data: None,
-    // };
-    // conn.execute(
-    //     "INSERT INTO person (name, data) VALUES (?1, ?2)",
-    //     (&me.name, &me.data),
-    // )?;
-
-    // for person in person_iter {
-    //     println!("Found person {:?}", person.unwrap());
-    // }
-    // Ok(())
 }
-
-// fn main() {
-//     write_welcome();
-//     // Sign in
-//     // Connect to DB
-//     // Give status
-//     // Offer menu
-// }
