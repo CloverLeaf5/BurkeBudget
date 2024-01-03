@@ -4,15 +4,15 @@ use rusqlite::Connection;
 mod balance_sheet;
 
 /// Display the main menu and handle response
-pub fn main_menu(conn: Connection, user: User) {
+pub fn main_menu(conn: &Connection, user: &User) {
     match print_instr_get_response(1, 3, || {
         println!("Which section would you like to use? (Enter the number)");
         println!("1. Budget");
         println!("2. Balance Sheet");
         println!("3. Quit");
     }) {
-        1 => budget_menu(&conn, &user),
-        2 => balance_sheet_menu(&conn, &user),
+        1 => budget_menu(conn, user),
+        2 => balance_sheet_menu(conn, user),
         3 => return,
         x => panic!("Response {} is an error state. Exiting the program.", x),
     }
@@ -48,8 +48,8 @@ pub fn balance_sheet_menu(conn: &Connection, user: &User) {
         println!("3. Update Liabilities");
     }) {
         1 => println!("Coming Soon"),
-        2 => balance_sheet::assets(&conn, &user),
-        3 => balance_sheet::liabilities(&conn, &user),
+        2 => balance_sheet::assets(conn, user),
+        3 => balance_sheet::liabilities(conn, user),
         x => panic!("Response {} is an error state. Exiting the program.", x),
     }
 }

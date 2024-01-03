@@ -36,7 +36,7 @@ fn main() -> Result<()> {
             println!("\nWelcome {}", user.fullname());
             // Display the menu
             // The menu will handle the rest of the functionality until the user quits
-            menu::main_menu(conn, user);
+            menu::main_menu(&conn, &user);
         }
     }
 
