@@ -21,10 +21,10 @@ pub fn main_menu(conn: &Connection, user: &User) {
 /// Display the budget menu
 pub fn budget_menu(_conn: &Connection, _user: &User) {
     match print_instr_get_response(1, 4, || {
-        println!("BUDGET: For tracking money entering and leaving your possession each month");
+        println!("\n\nBUDGET: For tracking money entering and leaving your possession each month");
         println!("Longer and shorter term expenses / income should be averaged on a monthly basis");
         println!("Example: A holiday bonus can be divided by 12 to reflect its effect on your monthly budget");
-        println!("What would you like to do with your budget? (Enter the number)");
+        println!("\nWhat would you like to do with your budget? (Enter the number)");
         println!("1. View Budget");
         println!("2. Update Monthly Expenses");
         println!("3. Update Monthly Income");
@@ -40,16 +40,17 @@ pub fn budget_menu(_conn: &Connection, _user: &User) {
 /// Display the balance sheet menu
 pub fn balance_sheet_menu(conn: &Connection, user: &User) {
     match print_instr_get_response(1, 4, || {
-        println!("BALANCE SHEET: For tracking long term assets and liabilities");
+        println!("\n\nBALANCE SHEET: For tracking long term assets and liabilities");
         println!("This does not track money that it moving, rather it tracks your net worth");
-        println!("What would you like to do with your balance sheet? (Enter the number)");
+        println!("The only points you can later return to are the ones saved as a Snapshot");
+        println!("\nWhat would you like to do with your balance sheet? (Enter the number)");
         println!("1. View Balance Sheet / Create Snapshot");
         println!("2. Update Assets");
         println!("3. Update Liabilities");
     }) {
         1 => println!("Coming Soon"),
-        2 => balance_sheet::assets(conn, user),
-        3 => balance_sheet::liabilities(conn, user),
+        2 => balance_sheet::balance_sheet_entry(conn, user, BalanceSheetHalf::Assets),
+        3 => balance_sheet::balance_sheet_entry(conn, user, BalanceSheetHalf::Liabilities),
         x => panic!("Response {} is an error state. Exiting the program.", x),
     }
 }

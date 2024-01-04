@@ -14,6 +14,27 @@ impl User {
     }
 }
 
+/// Assets or Liabilities
+pub enum BalanceSheetHalf {
+    Assets,
+    Liabilities,
+}
+impl BalanceSheetHalf {
+    pub fn to_str(&self) -> &str {
+        match self {
+            BalanceSheetHalf::Assets => "Assets",
+            BalanceSheetHalf::Liabilities => "Liabilities",
+        }
+    }
+    /// Works with the is_asset boolean in the SQLite DB
+    pub fn to_bool_int(&self) -> usize {
+        match self {
+            BalanceSheetHalf::Assets => 1,
+            BalanceSheetHalf::Liabilities => 0,
+        }
+    }
+}
+
 /// Utilizes the read!() macro but exits the program if the user has input "quit"
 pub fn read_or_quit() -> String {
     let input: String = read!();
