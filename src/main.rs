@@ -11,8 +11,8 @@ fn write_welcome() {
     println!("||LKLK");
     println!("||    \\\\");
     println!("||     ||");
-    println!("||     |||");
-    println!("||TBTB///");
+    println!("||     ||");
+    println!("||TBTB//");
     println!("");
     println!("Welcome to the Burke Budget App!");
     println!("\nType \"quit\" to quit at any time. This will also logout the current user\n");

@@ -14,3 +14,11 @@ INPUT A DEFAULT USER INTO THE USER TABLE
     //         &pretend_user.lastname,
     //     ),
     // )?;
+
+DROP BALANCE SHEET TABLES
+    // conn
+    //     .execute_batch(
+    //         "DROP TABLE balance_categories;
+    //          DROP TABLE balance_items;",
+    //     )
+    //     .unwrap();

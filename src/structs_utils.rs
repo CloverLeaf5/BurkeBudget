@@ -1,5 +1,3 @@
-use text_io::read;
-
 /// The User struct for the application
 #[derive(Debug, Clone)]
 pub struct User {
@@ -15,6 +13,7 @@ impl User {
 }
 
 /// Assets or Liabilities
+#[derive(PartialEq)]
 pub enum BalanceSheetHalf {
     Assets,
     Liabilities,
@@ -33,16 +32,30 @@ impl BalanceSheetHalf {
             BalanceSheetHalf::Liabilities => 0,
         }
     }
+    /// Works with the is_asset boolean in the Category struct
+    pub fn to_bool(&self) -> bool {
+        match self {
+            BalanceSheetHalf::Assets => true,
+            BalanceSheetHalf::Liabilities => false,
+        }
+    }
 }
 
 /// Utilizes the read!() macro but exits the program if the user has input "quit"
 pub fn read_or_quit() -> String {
-    let input: String = read!();
-    if input.eq_ignore_ascii_case("quit") {
-        std::process::exit(0);
-    } else {
-        input
+    // let input: String = read!();  *** ONLY READS TO A SPACE!!
+    let mut input = String::new();
+    std::io::stdin()
+        .read_line(&mut input)
+        .expect("Error getting input");
+    input = input.trim_end().to_string(); // Trim whitespace
+    let words: Vec<&str> = input.split(' ').collect();
+    for word in words {
+        if word.eq_ignore_ascii_case("quit") {
+            std::process::exit(0);
+        }
     }
+    input
 }
 
 /// Get a unint response from the user within a specific range

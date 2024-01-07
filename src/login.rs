@@ -36,7 +36,7 @@ pub fn login(conn: &Connection) -> Result<User> {
         }
         // Username not found, may need to see list or signup
         None => {
-            println!("That user was not found.");
+            println!("\nThat user was not found.");
             match vieworsignup(&username).as_str() {
                 // View list of users and choose one or signup
                 "view" => {
@@ -95,7 +95,7 @@ fn chooseorsignup(conn: &Connection, username: String) -> Result<User> {
     // Allow choice of users from that list
     let selection = print_instr_get_response(0, users.len(), || {
         // Print out the list of users
-        println!("Complete list of users:");
+        println!("\nComplete list of users:");
         for (idx, user) in users.iter().enumerate() {
             println!("{}. {}", idx + 1, user.username);
         }
