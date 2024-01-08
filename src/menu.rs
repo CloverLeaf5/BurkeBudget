@@ -48,7 +48,7 @@ pub fn balance_sheet_menu(conn: &Connection, user: &User) {
         println!("2. Update Assets");
         println!("3. Update Liabilities");
     }) {
-        1 => println!("Coming Soon"),
+        1 => balance_sheet::balance_sheet_whole_entry_point(conn, user),
         2 => balance_sheet::balance_sheet_half_entry_point(conn, user, BalanceSheetHalf::Assets),
         3 => {
             balance_sheet::balance_sheet_half_entry_point(conn, user, BalanceSheetHalf::Liabilities)

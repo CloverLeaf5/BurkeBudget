@@ -42,8 +42,8 @@ impl BalanceSheetHalf {
 }
 
 /// Utilizes the read!() macro but exits the program if the user has input "quit"
+// TODO: Sanitize input to only allow periods and characters (avoid SQL injection)
 pub fn read_or_quit() -> String {
-    // let input: String = read!();  *** ONLY READS TO A SPACE!!
     let mut input = String::new();
     std::io::stdin()
         .read_line(&mut input)
@@ -52,6 +52,7 @@ pub fn read_or_quit() -> String {
     let words: Vec<&str> = input.split(' ').collect();
     for word in words {
         if word.eq_ignore_ascii_case("quit") {
+            println!("\nYour budget is saved, and you have been logged out. See you next time!");
             std::process::exit(0);
         }
     }
