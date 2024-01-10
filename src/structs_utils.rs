@@ -5,12 +5,45 @@ pub struct User {
     pub username_lower: String,
     pub firstname: String,
     pub lastname: String,
+    pub is_deleted: bool,
 }
 impl User {
     pub fn fullname(&self) -> String {
         self.firstname.clone() + " " + self.lastname.clone().as_str()
     }
 }
+
+#[derive(Debug, PartialEq)]
+pub struct Category {
+    pub category: String,
+    pub category_lower: String,
+    pub username_lower: String,
+    pub is_asset: bool,
+}
+/// Refers to an asset or liability item
+/// category_lower and username_lower referance the balance_categories and users tables, respectively
+/// The timeline is an incrementing value (stored in a separate table) that gives an order to the items
+/// timeline_created refers to when this specific version of this item was created (changed with updates)
+/// timeline_original refers to when the first iteration of this item was created (not changed with updates)
+///     This may be used when making a view of snapshots in the Snapshot section
+/// timeline_deleted is set to a very high number by default. When an item is deleted it is given a timeline value instead
+#[derive(Debug, PartialEq)]
+pub struct Item {
+    pub item: String,
+    pub item_lower: String,
+    pub value: f64,
+    pub category: String,
+    pub category_lower: String,
+    pub username_lower: String,
+    pub is_asset: bool,
+    pub timeline_created: usize,
+    pub timeline_original: usize,
+    pub is_deleted: bool,
+    pub timeline_deleted: usize,
+}
+
+/// The maximum length is related to the formatting used
+pub const MAX_CHARACTERS_ITEM_NAME: usize = 22;
 
 /// Assets or Liabilities
 #[derive(PartialEq)]

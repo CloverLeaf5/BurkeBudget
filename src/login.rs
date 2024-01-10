@@ -10,6 +10,7 @@ pub fn login(conn: &Connection) -> Result<User> {
             username_lower TEXT NOT NULL,
             firstname TEXT NOT NULL,
             lastname TEXT NOT NULL,
+            is_deleted INTEGER NOT NULL,
             PRIMARY KEY (username_lower)
         )",
         (), // empty list of parameters.
@@ -32,6 +33,7 @@ pub fn login(conn: &Connection) -> Result<User> {
                 username_lower: row.get(1)?,
                 firstname: row.get(2)?,
                 lastname: row.get(3)?,
+                is_deleted: row.get(4)?,
             })
         }
         // Username not found, may need to see list or signup
@@ -89,6 +91,7 @@ fn chooseorsignup(conn: &Connection, username: String) -> Result<User> {
             username_lower: row.get(1)?,
             firstname: row.get(2)?,
             lastname: row.get(3)?,
+            is_deleted: row.get(4)?,
         })
     }
 
@@ -122,7 +125,7 @@ fn signup(conn: &Connection, username: String) -> Result<User> {
 
     // Insert the new user into the database
     conn.execute(
-        "INSERT INTO users (username, username_lower, firstname, lastname) VALUES (?1, ?2, ?3, ?4)",
+        "INSERT INTO users (username, username_lower, firstname, lastname, is_deleted) VALUES (?1, ?2, ?3, ?4, 0)",
         (&username, &username.to_lowercase(), &firstname, &lastname),
     )?;
 
@@ -132,5 +135,6 @@ fn signup(conn: &Connection, username: String) -> Result<User> {
         username_lower: username.to_lowercase(),
         firstname: firstname,
         lastname: lastname,
+        is_deleted: false,
     });
 }
