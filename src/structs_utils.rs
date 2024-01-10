@@ -42,6 +42,16 @@ pub struct Item {
     pub timeline_deleted: usize,
 }
 
+#[derive(Debug, PartialEq)]
+pub struct Snapshot {
+    pub timeline: usize,
+    pub username_lower: String,
+    pub date_today: String,
+    pub net_worth: f64,
+    pub comment: String,
+    pub is_deleted: bool,
+}
+
 /// The maximum length is related to the formatting used
 pub const MAX_CHARACTERS_ITEM_NAME: usize = 22;
 

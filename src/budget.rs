@@ -45,10 +45,9 @@ pub fn balance_sheet_half_entry_point(
 
 pub fn balance_sheet_whole_entry_point(conn: &Connection, user: &User) {
     initialize_balance_sheet(conn, user);
-    let (mut asset_categories, mut asset_items) =
-        get_relevant_items(conn, user, &BalanceSheetHalf::Assets)
-            .expect("There was an error accessing the Balance Sheet Assets from the Database");
-    let (mut liability_categories, mut liability_items) =
+    let (asset_categories, asset_items) = get_relevant_items(conn, user, &BalanceSheetHalf::Assets)
+        .expect("There was an error accessing the Balance Sheet Assets from the Database");
+    let (liability_categories, liability_items) =
         get_relevant_items(conn, user, &BalanceSheetHalf::Liabilities)
             .expect("There was an error accessing the Balance Sheet Liabilities from the Database");
     // loop {
