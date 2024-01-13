@@ -11,6 +11,12 @@ pub fn create_new_category(
 ) {
     println!("What would you like to call the new category?");
     let cat_name = read_or_quit();
+    // Can't have zero length
+    if cat_name.len() == 0 {
+        println!("Cannot have an empty name. Press Enter to go back");
+        read_or_quit(); // Allow user to acknowledge
+        return;
+    }
     // Check if the category already exists
     for category in &mut *categories {
         if cat_name.to_lowercase() == category.category_lower {
@@ -48,6 +54,12 @@ pub fn create_new_item(
     println!("What would you like to name the new item?");
     // Get The new item's name
     let item_name = read_or_quit();
+    // Can't have zero length
+    if item_name.len() == 0 {
+        println!("Cannot have an empty name. Press Enter to go back");
+        read_or_quit(); // Allow user to acknowledge
+        return;
+    }
     // Check if the item already exists
     for item in &mut *items {
         if item_name.to_lowercase() == item.item_lower {

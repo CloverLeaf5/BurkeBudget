@@ -16,9 +16,10 @@ INPUT A DEFAULT USER INTO THE USER TABLE
     // )?;
 
 DROP BALANCE SHEET TABLES
-    // conn
-    //     .execute_batch(
-    //         "DROP TABLE balance_categories;
-    //          DROP TABLE balance_items;",
-    //     )
-    //     .unwrap();
+    // conn.execute_batch(
+    //     "DROP TABLE IF EXISTS balance_items;
+    //     DROP TABLE IF EXISTS balance_categories;
+    //     DROP TABLE IF EXISTS balance_timeline;
+    //     DROP TABLE IF EXISTS balance_snapshots",
+    // )
+    // .unwrap();

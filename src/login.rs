@@ -103,7 +103,7 @@ fn chooseorsignup(conn: &Connection, username: String) -> Result<User> {
             println!("{}. {}", idx + 1, user.username);
         }
         println!("Enter the number beside the user you would like to login with.");
-        println!("Enter 0 for none of these and sign up a new user instead.");
+        println!("Enter 0 for none of these and sign up as a new user instead.");
     });
 
     // Return the selected user or sign up if they entered 0 and return the new user

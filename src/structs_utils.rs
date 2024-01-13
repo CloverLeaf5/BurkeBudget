@@ -53,7 +53,7 @@ pub struct Snapshot {
 }
 
 /// The maximum length is related to the formatting used
-pub const MAX_CHARACTERS_ITEM_NAME: usize = 22;
+pub const MAX_CHARACTERS_ITEM_NAME: usize = 28;
 
 /// Assets or Liabilities
 #[derive(PartialEq)]

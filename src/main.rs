@@ -13,8 +13,8 @@ fn write_welcome() {
     println!("||     ||");
     println!("||     ||");
     println!("||TBTB//");
-    println!("");
-    println!("Welcome to the Burke Budget App!");
+    println!("\nWelcome to the Burke Budget App!");
+    println!("\nEnter all numbers without commas or dollar signs");
     println!("\nType \"quit\" to quit at any time. This will also logout the current user\n");
 }
 

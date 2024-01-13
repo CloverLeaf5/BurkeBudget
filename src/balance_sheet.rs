@@ -1,9 +1,13 @@
 use crate::structs_utils::*;
 use chrono::prelude::*;
 use rusqlite::{Connection, Result};
+use rusty_money::{iso, Money};
 
 mod bs_items_cats_timeline;
 use bs_items_cats_timeline::*;
+
+mod bs_snapshots;
+use bs_snapshots::*;
 
 #[derive(Debug, PartialEq)]
 enum BalanceSheetSelection<'a> {
@@ -67,7 +71,7 @@ pub fn balance_sheet_whole_entry_point(conn: &Connection, user: &User) {
             0 => return,
             1 => create_snapshot(conn, user, net_worth).expect("Error creating snapshot"),
             2 => view_snapshot_menu(conn, user).expect("Error accessing snapshots"),
-            3 => println!("Coming soon"),
+            3 => snapshot_visualizer_menu(conn, user),
             x => panic!("Response {} is an error state. Exiting the program.", x),
         }
     }
@@ -106,7 +110,10 @@ fn print_balance_sheet_half_get_response<'a, 'b, 'c>(
                     for _ in 0..num_dashes {
                         print!("-");
                     }
-                    println!(" {}", item.value);
+                    println!(
+                        " {}",
+                        Money::from_str(item.value.to_string().as_str(), iso::USD).unwrap()
+                    );
                     idx += 1;
                     sorted_items.push(item);
                 }
@@ -118,7 +125,7 @@ fn print_balance_sheet_half_get_response<'a, 'b, 'c>(
     println!("  {}. NEW ITEM", idx);
     idx += 1;
     println!("{}. RENAME CATEGORY", idx);
-    println!("\n 0. GO BACK - Balance Sheet Menu");
+    println!("\n0. GO BACK - Balance Sheet Menu");
     let response = print_instr_get_response(0, idx, || {
         println!("\nEnter the number of the item you'd like to update / delete, or one of the other numbers");
     });
@@ -162,14 +169,27 @@ fn print_balance_sheet_get_response(
                 for _ in 0..num_dashes {
                     print!("-");
                 }
-                println!(" {}", item.value);
+                println!(
+                    " {}",
+                    Money::from_str(item.value.to_string().as_str(), iso::USD).unwrap()
+                );
                 idx += 1;
                 asset_total += item.value;
             }
         }
     }
-    println!("____________________________________________");
-    println!("Total Assets                    {}", asset_total);
+    // Print sum
+    for _ in 0..(MAX_CHARACTERS_ITEM_NAME + 24) {
+        print!("_");
+    }
+    print!("\nTotal Assets");
+    for _ in 0..(MAX_CHARACTERS_ITEM_NAME - 2) {
+        print!(" ");
+    }
+    println!(
+        "{}",
+        Money::from_str(asset_total.to_string().as_str(), iso::USD).unwrap()
+    );
 
     println!("\nLIABILITIES");
     let mut idx: usize = 1;
@@ -193,30 +213,46 @@ fn print_balance_sheet_get_response(
                 for _ in 0..num_dashes {
                     print!("-");
                 }
-                println!(" {}", item.value);
+                println!(
+                    " {}",
+                    Money::from_str(item.value.to_string().as_str(), iso::USD).unwrap()
+                );
                 idx += 1;
                 liability_total += item.value;
             }
         }
     }
-    println!("____________________________________________");
-    println!("Total Liabilities               {}", liability_total);
-
+    // Print sum
+    for _ in 0..(MAX_CHARACTERS_ITEM_NAME + 24) {
+        print!("_");
+    }
+    print!("\nTotal Liabilities");
+    for _ in 0..(MAX_CHARACTERS_ITEM_NAME - 7) {
+        print!(" ");
+    }
     println!(
-        "\n\nTOTAL NET WORTH --------------- {}",
-        asset_total - liability_total
+        "{}",
+        Money::from_str(liability_total.to_string().as_str(), iso::USD).unwrap()
     );
 
-    println!("\n\nWith Balance Sheet Snapshots, you can store this current version of the Balance Sheet.");
-    println!("It can then later be viewed or analyzed in aggregate for trends.");
+    // Grand total
+    let total = asset_total - liability_total;
+    println!(
+        "\n\nTOTAL NET WORTH -------------------  {}",
+        Money::from_str(total.to_string().as_str(), iso::USD).unwrap()
+    );
+
+    println!(
+        "\n\nBalance Sheet Snapshots can later be viewed or analyzed in aggregate for trends."
+    );
     println!("It is recommended to do this periodically (such as monthly or quarterly).\n");
     let response = print_instr_get_response(0, 3, || {
         println!("1. Take a snapshot");
-        println!("2. View or edit a snapshots");
+        println!("2. View or delete a snapshot");
         println!("3. Trend Analysis");
         println!("\n0. Go Back - Balance Sheet Menu");
     });
-    (response, asset_total - liability_total)
+    (response, total)
 }
 
 /// Get the relevant half of the balance sheet (items and categories)
@@ -268,64 +304,30 @@ fn get_relevant_items_cats(
     Ok((categories, items))
 }
 
-/// Store a snapshot in the database (not that it mainly stores a timestamp and sparse details)
-/// The Balance Sheet can be reconstructed by accessing the database with this information
-fn create_snapshot(conn: &Connection, user: &User, net_worth: f64) -> Result<()> {
-    // Get current timestamp without updating it
-    // This should be the last used timestamp on the timeline
-    let timestamp: usize;
-    let mut stmt =
-        conn.prepare("SELECT timestamp FROM balance_timeline WHERE username_lower = ?1")?;
-    let mut rows = stmt.query(rusqlite::params![user.username_lower])?;
-    timestamp = rows
-        .next()?
-        .expect("Timeline query returned empty")
-        .get(0)?;
+/// Select which type of visualization user would like
+fn snapshot_visualizer_menu(conn: &Connection, user: &User) {
+    loop {
+        println!("\n\nTrend Analysis - How would you like to visualize your snapshots?");
+        println!("1. Side-By-Side Comparison");
+        println!("2. Net Worth Graph Over Time");
+        println!("\n0. GO BACK");
 
-    // Check if a snapshot has already been made for this timestamp
-    let mut stmt = conn.prepare(
-        "SELECT timestamp FROM balance_snapshots WHERE timestamp = ?1 AND username_lower = ?2",
-    )?;
-    let mut rows = stmt.query(rusqlite::params![timestamp, user.username_lower])?;
-    let row = rows.next()?;
-    match row {
-        // Already created
-        Some(_same_timestamp) => {
-            println!("A snapshot has already been created for the current balance sheet state.");
-            return Ok(());
+        let response = print_instr_get_response(0, 2, || {});
+        match response {
+            0 => return,
+            1 => side_by_side_snapshots(conn, user).expect("Error getting the snapshots"),
+            2 => println!("Coming soon!"), //net_worth_graph(conn, user),
+            x => panic!("Response {} is an error state. Exiting the program.", x),
         }
-        // New timestamp
-        None => {} // Code below
     }
-
-    let date_today = Local::now().format("%Y-%m-%d").to_string(); // YYYY-MM-DD
-
-    println!("\nEnter an optional comment about this snapshot (Just hit Enter to skip):");
-    let comment: String = read_or_quit();
-
-    // Insert the snapshot into the table
-    conn.execute(
-        "INSERT INTO balance_snapshots
-        (timestamp, username_lower, date_text, net_worth, comment, is_deleted)
-        VALUES (?1, ?2, ?3, ?4, ?5, 0)",
-        (
-            timestamp,
-            user.username.to_ascii_lowercase(),
-            date_today,
-            net_worth,
-            comment,
-        ),
-    )?;
-
-    Ok(())
 }
 
-/// List the snapshots and offer to open one of them up
-fn view_snapshot_menu(conn: &Connection, user: &User) -> Result<()> {
-    println!("\n\nSaved Snapshots:");
+/// Allows the user to select which snapshots they would like to view side-by-side
+fn side_by_side_snapshots(conn: &Connection, user: &User) -> Result<()> {
     // Push all of the snapshots to a vector first
     let mut snapshots: Vec<Snapshot> = vec![];
-    let mut stmt = conn.prepare("SELECT * FROM balance_snapshots WHERE username_lower = ?1")?;
+    let mut stmt = conn
+        .prepare("SELECT * FROM balance_snapshots WHERE username_lower = ?1 AND is_deleted = 0")?;
     let mut rows = stmt.query(rusqlite::params![user.username_lower])?;
     while let Some(row) = rows.next()? {
         snapshots.push(Snapshot {
@@ -337,203 +339,299 @@ fn view_snapshot_menu(conn: &Connection, user: &User) -> Result<()> {
             is_deleted: row.get(5)?,
         })
     }
-    // Print out listing of snapshots
-    snapshots.sort_by(|a, b| a.timeline.cmp(&b.timeline));
-    let mut idx: usize = 1;
-    for snapshot in &snapshots {
-        println!(
-            "{}.  {}: Net Worth ${}",
-            idx, snapshot.date_today, snapshot.net_worth
-        );
-        idx += 1;
+
+    if snapshots.len() == 0 {
+        println!("\n\nYou don't have any saved snapshots yet. Hit Enter to go back.");
+        read_or_quit(); // Just to give the user a chance to acknowledge
+        return Ok(());
     }
+
+    // Sort the snapshots in chronological order
+    snapshots.sort_by(|a, b| a.timeline.cmp(&b.timeline));
+
+    // Print out listing of snapshots
+    println!("\n\nSide-By-Side Comparison");
+    println!("Select up to 5 snapshots to view side-by-side");
+    println!("\n\nSaved Snapshots:");
+    let mut idx: usize = 0;
+    for snapshot in &snapshots {
+        idx += 1;
+        println!(
+            "{}.  {}: Net Worth {}",
+            idx,
+            snapshot.date_today,
+            Money::from_str(snapshot.net_worth.to_string().as_str(), iso::USD,).unwrap()
+        );
+    }
+
     println!("\n0. GO BACK");
-    let response = print_instr_get_response(0, idx, || {
-        println!("Which snapshot would you like to view");
-    });
-    // Go back or go to snapshot viewer
-    match response {
-        0 => {
+    println!("\nSelect snapshots by entering their numbers separated by a space (eg - 1 5 6)");
+
+    let response = read_or_quit();
+    if response == "0" {
+        return Ok(());
+    }
+    match parse_space_delim_response_for_int_to_index(response, 1, idx) {
+        Some(selected_indices) => print_side_by_side(conn, user, snapshots, selected_indices),
+        None => {
+            println!("Incorrect input given. Please try again.");
             return Ok(());
         }
-        x if x > 0 && x <= idx => {
-            view_single_snapshot(conn, user, &mut snapshots, idx - 1);
-        }
-        x => panic!("Response {} is an error state. Exiting the program.", x),
     }
 
     Ok(())
 }
 
-/// Display the Balance Sheet represented by the snapshot
-fn view_single_snapshot(conn: &Connection, user: &User, snapshots: &mut Vec<Snapshot>, idx: usize) {
-    let relevant_snapshot = snapshots
-        .get(idx)
-        .expect("Error accessing requested snapshot");
-    let (asset_categories, asset_items) = get_snapshot_items_cats(
-        conn,
-        user,
-        &BalanceSheetHalf::Assets,
-        relevant_snapshot.timeline,
-    )
-    .expect("There was an error accessing the Balance Sheet Assets from the Database");
-    let (liability_categories, liability_items) = get_snapshot_items_cats(
-        conn,
-        user,
-        &BalanceSheetHalf::Liabilities,
-        relevant_snapshot.timeline,
-    )
-    .expect("There was an error accessing the Balance Sheet Assets from the Database");
-    println!(
-        "\n\nSNAPSHOT of Balance Sheet - {}",
-        relevant_snapshot.date_today
-    );
+/// Print out the side by side comparison, then let the user return
+fn print_side_by_side(
+    conn: &Connection,
+    user: &User,
+    snapshots: Vec<Snapshot>,
+    mut selected_indices: Vec<usize>,
+) {
+    const COL_WIDTH: usize = 20;
+    selected_indices.sort();
 
-    println!("\nASSETS");
-    let mut idx: usize = 1;
-    let mut asset_total: f64 = 0.0;
-    for category in &asset_categories {
-        let mut no_items_found_in_cat = true;
-        // Check if any of the items are in this category
-        for item in &asset_items {
-            if item.category_lower == category.category_lower {
-                no_items_found_in_cat = false;
-            }
+    // Get all of the items and categories for this user
+    let mut asset_items = get_all_items(conn, user, &BalanceSheetHalf::Assets)
+        .expect("There was an error accessing the Balance Sheet Assets from the Database");
+    let mut liability_items = get_all_items(conn, user, &BalanceSheetHalf::Liabilities)
+        .expect("There was an error accessing the Balance Sheet Assets from the Database");
+
+    // Sort the assets and liabilities by timeline original
+    asset_items.sort_unstable_by_key(|a| (a.timeline_original, a.timeline_created));
+    liability_items.sort_unstable_by_key(|a| (a.timeline_original, a.timeline_created));
+
+    // Running total of printed values matching snapshot by index
+    let mut asset_totals: Vec<f64> = vec![0.0, 0.0, 0.0, 0.0, 0.0];
+    let mut liability_totals: Vec<f64> = vec![0.0, 0.0, 0.0, 0.0, 0.0];
+
+    //////////// ASSETS //////////////////////////////
+    // Loop through the items and print a new one every time it's crossed
+    let mut prev_item_lower: &String = &String::from("");
+    for (idx, item) in asset_items.iter().enumerate() {
+        if &item.item_lower == prev_item_lower {
+            // This item name is already printed
+            continue;
         }
-        if no_items_found_in_cat {
-            continue; // Don't need to print this category if it has no items
-        }
-        println!("{}", category.category);
-        for item in &asset_items {
-            if item.category_lower == category.category_lower {
-                print!("    {}. {} ", idx, item.item);
-                let num_dashes: usize = MAX_CHARACTERS_ITEM_NAME + 1 - item.item.len();
-                for _ in 0..num_dashes {
-                    print!("-");
+        print!(
+            "{} {} ",
+            item.item,
+            "-".repeat(MAX_CHARACTERS_ITEM_NAME - item.item.len())
+        );
+        prev_item_lower = &item.item_lower;
+
+        // After printing item name, must print value for each snapshot
+        // Subsequent items in the vector will be other instances of this item if needed
+        for (col, selected_index) in selected_indices.iter().enumerate() {
+            let current_timeline = snapshots[*selected_index].timeline;
+            if item.timeline_created <= current_timeline && item.timeline_deleted > current_timeline
+            {
+                // Correct value, print it here and add to running total
+                print!(
+                    "{}",
+                    Money::from_str(item.value.to_string().as_str(), iso::USD).unwrap()
+                );
+                asset_totals[col] += item.value;
+                // If this isn't the last column, print more dashes, otherwise new line
+                let money_len = Money::from_str(item.value.to_string().as_str(), iso::USD)
+                    .unwrap()
+                    .to_string()
+                    .len();
+                if col < selected_indices.len() - 1 {
+                    print!(" {} ", "-".repeat(COL_WIDTH - money_len));
+                } else {
+                    print!("\n");
                 }
-                println!(" {}", item.value);
-                idx += 1;
-                asset_total += item.value;
+            } else if item.timeline_created > current_timeline {
+                // This item was created after this timeline point
+                // Print a placeholder
+                print!(" {} ", "-".repeat(COL_WIDTH));
+            } else {
+                // This item was deleted before this timeline point
+                let mut offset: usize = 0;
+                loop {
+                    // Step through the vector trying to find a later version of this same item
+                    offset += 1;
+                    // Make sure this is a valid index
+                    if idx + offset < asset_items.len() {
+                        let item_to_check = &asset_items[idx + offset];
+                        if &item_to_check.item_lower != prev_item_lower {
+                            // Not the same item so just print dashes and move on
+                            print!(" {} ", "-".repeat(COL_WIDTH));
+                            break;
+                        } else {
+                            // Same item, check again if the timeline matches. If not, just try on next one via loop
+                            if item.timeline_created <= current_timeline
+                                && item.timeline_deleted > current_timeline
+                            {
+                                // Can print its value here
+                                print!(
+                                    "{}",
+                                    Money::from_str(item.value.to_string().as_str(), iso::USD)
+                                        .unwrap()
+                                );
+                                asset_totals[col] += item.value;
+                                // If this isn't the last column, print more dashes, otherwise new line
+                                let money_len =
+                                    Money::from_str(item.value.to_string().as_str(), iso::USD)
+                                        .unwrap()
+                                        .to_string()
+                                        .len();
+                                if col < selected_indices.len() - 1 {
+                                    print!(" {} ", "-".repeat(COL_WIDTH - money_len));
+                                } else {
+                                    print!("\n");
+                                }
+                            }
+                        }
+                    } else {
+                        // End of vector, print dashes
+                        print!(" {} ", "-".repeat(COL_WIDTH));
+                        break;
+                    }
+                }
             }
         }
     }
-    println!("____________________________________________");
-    println!("Total Assets                    {}", asset_total);
 
-    println!("\nLIABILITIES");
-    let mut idx: usize = 1;
-    let mut liability_total: f64 = 0.0;
-    for category in &liability_categories {
-        let mut no_items_found_in_cat = true;
-        // Check if any of the items are in this category
-        for item in &liability_items {
-            if item.category_lower == category.category_lower {
-                no_items_found_in_cat = false;
+    // TODO - Make this a generic function so code doesn't repeat
+    //////////// LIABILITIES //////////////////////////////
+    // Loop through the items and print a new one every time it's crossed
+    let mut prev_item_lower: &String = &String::from("");
+    for (idx, item) in liability_items.iter().enumerate() {
+        if &item.item_lower == prev_item_lower {
+            // This item name is already printed
+            continue;
+        }
+        print!(
+            "{} {} ",
+            item.item,
+            "-".repeat(MAX_CHARACTERS_ITEM_NAME - item.item.len())
+        );
+        prev_item_lower = &item.item_lower;
+
+        // After printing item name, must print value for each snapshot
+        // Subsequent items in the vector will be other instances of this item if needed
+        for (col, selected_index) in selected_indices.iter().enumerate() {
+            let current_timeline = snapshots[*selected_index].timeline;
+            if item.timeline_created <= current_timeline && item.timeline_deleted > current_timeline
+            {
+                // Correct value, print it here and add to running total
+                print!(
+                    "{}",
+                    Money::from_str(item.value.to_string().as_str(), iso::USD).unwrap()
+                );
+                liability_totals[col] += item.value;
+                // If this isn't the last column, print more dashes, otherwise new line
+                let money_len = Money::from_str(item.value.to_string().as_str(), iso::USD)
+                    .unwrap()
+                    .to_string()
+                    .len();
+                if col < selected_indices.len() - 1 {
+                    print!(" {} ", "-".repeat(COL_WIDTH - money_len));
+                } else {
+                    print!("\n");
+                }
+            } else if item.timeline_created > current_timeline {
+                // This item was created after this timeline point
+                // Print a placeholder
+                print!(" {} ", "-".repeat(COL_WIDTH));
+            } else {
+                // This item was deleted before this timeline point
+                let mut offset: usize = 0;
+                loop {
+                    // Step through the vector trying to find a later version of this same item
+                    offset += 1;
+                    // Make sure this is a valid index
+                    if idx + offset < liability_items.len() {
+                        let item_to_check = &liability_items[idx + offset];
+                        if &item_to_check.item_lower != prev_item_lower {
+                            // Not the same item so just print dashes and move on
+                            print!(" {} ", "-".repeat(COL_WIDTH));
+                            break;
+                        } else {
+                            // Same item, check again if the timeline matches. If not, just try on next one via loop
+                            if item.timeline_created <= current_timeline
+                                && item.timeline_deleted > current_timeline
+                            {
+                                // Can print its value here
+                                print!(
+                                    "{}",
+                                    Money::from_str(item.value.to_string().as_str(), iso::USD)
+                                        .unwrap()
+                                );
+                                liability_totals[col] += item.value;
+                                // If this isn't the last column, print more dashes, otherwise new line
+                                let money_len =
+                                    Money::from_str(item.value.to_string().as_str(), iso::USD)
+                                        .unwrap()
+                                        .to_string()
+                                        .len();
+                                if col < selected_indices.len() - 1 {
+                                    print!(" {} ", "-".repeat(COL_WIDTH - money_len));
+                                } else {
+                                    print!("\n");
+                                }
+                            }
+                        }
+                    } else {
+                        // End of vector, print dashes
+                        print!(" {} ", "-".repeat(COL_WIDTH));
+                        break;
+                    }
+                }
             }
         }
-        if no_items_found_in_cat {
-            continue; // Don't need to print this category if it has no items
-        }
-        println!("{}", category.category);
-        for item in &liability_items {
-            if item.category_lower == category.category_lower {
-                print!("    {}. {} ", idx, item.item);
-                let num_dashes: usize = MAX_CHARACTERS_ITEM_NAME + 1 - item.item.len();
-                for _ in 0..num_dashes {
-                    print!("-");
-                }
-                println!(" {}", item.value);
-                idx += 1;
-                liability_total += item.value;
-            }
-        }
-    }
-    println!("____________________________________________");
-    println!("Total Liabilities               {}", liability_total);
-
-    println!(
-        "\n\nTOTAL NET WORTH --------------- {}",
-        asset_total - liability_total
-    );
-
-    // Get response
-    println!("\n\nWhat would you like to do next?");
-    println!("1. Go Back");
-    println!("2. Delete this Snapshot");
-    let response = print_instr_get_response(1, 2, || {});
-    match response {
-        1 => {
-            return;
-        }
-        2 => {
-            println!("Are you sure you'd like to delete this Snapshot? This cannot be undone.");
-            println!("1. Yes");
-            println!("2. No (Go back)");
-            match print_instr_get_response(1, 2, || {}) {
-                1 => {
-                    // THIS IS WHERE I AM
-                    // Delete the item from the database and from the mutable vector
-                    let timeline: usize = get_and_update_timeline(conn, user);
-                    conn.execute(
-                        "UPDATE balance_items 
-                        SET is_deleted = 1, timeline_deleted = ?1
-                        WHERE item_lower = ?2 AND username_lower = ?3 AND timeline_created = ?4",
-                        (
-                            &timeline,
-                            &item_chosen.item_lower,
-                            &user.username_lower,
-                            &item_chosen.timeline_created,
-                        ),
-                    )
-                    .expect("Error deleting the item");
-                    // The item is already removed from the vector and will go out of scope here
-                    return;
-                }
-                2 => {
-                    // Must push the item back into the vector
-                    return;
-                }
-                x => panic!("Response {} is an error state. Exiting the program.", x),
-            }
-        }
-        x => panic!("Response {} is an error state. Exiting the program.", x),
     }
 }
 
-/// Get the items and categories relevant to a snapshot timestamp
-/// This will return either the assets or liabilities (call twice for both)
-fn get_snapshot_items_cats(
+/// Get the first five numbers delimited by spaces within the specified range
+/// NOTE: This converts the number from the number listed to an index by subtracting 1
+fn parse_space_delim_response_for_int_to_index(
+    response: String,
+    minval: usize,
+    maxval: usize,
+) -> Option<Vec<usize>> {
+    let vals_str: Vec<&str> = response.split(" ").collect();
+    let mut vals: Vec<usize> = vec![];
+    for val in vals_str {
+        match val.parse::<usize>() {
+            Ok(parsed) => {
+                // There is a number here
+                if parsed >= minval && parsed <= maxval && !vals.contains(&parsed) {
+                    // This is a correct number
+                    vals.push(parsed - 1);
+                } else {
+                    return None;
+                }
+            }
+            Err(_) => return None,
+        }
+    }
+    if vals.len() > 5 {
+        Some(vals[0..5].to_vec())
+    } else {
+        Some(vals)
+    }
+}
+
+/// Get all of the items for a user - used for side-by-side viewer
+/// This will return either the assets or liabilities (call once for each)
+fn get_all_items(
     conn: &Connection,
     user: &User,
     which_half: &BalanceSheetHalf,
-    timeline: usize,
-) -> Result<(Vec<Category>, Vec<Item>)> {
-    // Push all of the categories to a vector first
-    let mut categories: Vec<Category> = vec![];
-    let mut stmt =
-        conn.prepare("SELECT * FROM balance_categories WHERE is_asset=?1 AND username_lower=?2")?;
-    let mut rows = stmt.query(rusqlite::params![
-        which_half.to_bool_int(),
-        user.username_lower
-    ])?;
-    while let Some(row) = rows.next()? {
-        categories.push(Category {
-            category: row.get(0)?,
-            category_lower: row.get(1)?,
-            username_lower: row.get(2)?,
-            is_asset: row.get(3)?,
-        })
-    }
+) -> Result<Vec<Item>> {
     // Next push all of the items that fit the snapshot into a vector
     let mut items: Vec<Item> = vec![];
     let mut stmt = conn.prepare(
         "SELECT * FROM balance_items 
-        WHERE is_asset=?1 AND username_lower=?2 AND timeline_created<=?3 AND timeline_deleted>?3",
+        WHERE is_asset=?1 AND username_lower=?2",
     )?;
     let mut rows = stmt.query(rusqlite::params![
         which_half.to_bool_int(),
         user.username_lower,
-        timeline
     ])?;
     while let Some(row) = rows.next()? {
         items.push(Item {
@@ -550,18 +648,11 @@ fn get_snapshot_items_cats(
             timeline_deleted: row.get(10)?,
         })
     }
-    Ok((categories, items))
+    Ok(items)
 }
 
 /// Set up the tables for the balance sheet for this user
 fn initialize_balance_sheet(conn: &Connection, user: &User) {
-    conn.execute_batch(
-        "DROP TABLE IF EXISTS balance_items;
-        DROP TABLE IF EXISTS balance_categories;
-        DROP TABLE IF EXISTS balance_timeline;
-        DROP TABLE IF EXISTS balance_snapshots",
-    )
-    .unwrap();
     // Create the balance_categories table if it doesn't exist
     conn.execute(
         "CREATE TABLE IF NOT EXISTS balance_categories (
