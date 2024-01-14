@@ -84,6 +84,34 @@ impl BalanceSheetHalf {
     }
 }
 
+#[derive(PartialEq)]
+pub enum BudgetHalf {
+    Income,
+    Expenses,
+}
+impl BudgetHalf {
+    pub fn to_str(&self) -> &str {
+        match self {
+            BudgetHalf::Income => "Income",
+            BudgetHalf::Expenses => "Expenses",
+        }
+    }
+    /// Works with the is_income boolean in the SQLite DB
+    pub fn to_bool_int(&self) -> usize {
+        match self {
+            BudgetHalf::Income => 1,
+            BudgetHalf::Expenses => 0,
+        }
+    }
+    /// Works with the is_income boolean in the Category struct
+    pub fn to_bool(&self) -> bool {
+        match self {
+            BudgetHalf::Income => true,
+            BudgetHalf::Expenses => false,
+        }
+    }
+}
+
 /// Utilizes the read!() macro but exits the program if the user has input "quit"
 // TODO: Sanitize input to only allow periods and characters (avoid SQL injection)
 pub fn read_or_quit() -> String {

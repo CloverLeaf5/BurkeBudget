@@ -2,7 +2,7 @@ use crate::structs_utils::*;
 use rusqlite::{Connection, Result};
 
 #[derive(Debug, PartialEq)]
-enum BalanceSheetSelection<'a> {
+enum BudgetSelection<'a> {
     Some(&'a Item),
     NewCategory,
     NewItem,
@@ -10,12 +10,8 @@ enum BalanceSheetSelection<'a> {
     GoBack,
 }
 
-pub fn balance_sheet_half_entry_point(
-    conn: &Connection,
-    user: &User,
-    which_half: BalanceSheetHalf,
-) {
-    initialize_balance_sheet(conn, user);
+pub fn budget_half_entry_point(conn: &Connection, user: &User, which_half: BudgetHalf) {
+    initialize_budget(conn, user);
     let (mut categories, mut items) = get_relevant_items(conn, user, &which_half)
         .expect("There was an error accessing the Balance Sheet Database");
     loop {
@@ -43,7 +39,7 @@ pub fn balance_sheet_half_entry_point(
     }
 }
 
-pub fn balance_sheet_whole_entry_point(conn: &Connection, user: &User) {
+pub fn budget_whole_entry_point(conn: &Connection, user: &User) {
     initialize_balance_sheet(conn, user);
     let (asset_categories, asset_items) = get_relevant_items(conn, user, &BalanceSheetHalf::Assets)
         .expect("There was an error accessing the Balance Sheet Assets from the Database");
@@ -731,88 +727,89 @@ fn get_relevant_items(
     Ok((categories, items))
 }
 
-/// Set up the tables for the balance sheet for this user
-fn initialize_balance_sheet(conn: &Connection, user: &User) {
+/// Set up the tables for the budget for this user
+fn initialize_budget(conn: &Connection, user: &User) {
     // conn.execute_batch(
-    //     "DROP TABLE IF EXISTS balance_items;
-    //     DROP TABLE IF EXISTS balance_categories;
-    //     DROP TABLE IF EXISTS balance_timeline",
+    //     "DROP TABLE IF EXISTS budget_items;
+    //     DROP TABLE IF EXISTS budget_categories;
+    //     DROP TABLE IF EXISTS budget_timeline",
     // )
     // .unwrap();
-    // Create the balance_categories table if it doesn't exist
+    // Create the budget_categories table if it doesn't exist
     conn.execute(
-        "CREATE TABLE IF NOT EXISTS balance_categories (
+        "CREATE TABLE IF NOT EXISTS budget_categories (
             category TEXT NOT NULL,
             category_lower TEXT NOT NULL,
             username_lower TEXT NOT NULL,
-            is_asset INTEGER NOT NULL,
-            PRIMARY KEY (category_lower, username_lower, is_asset),
+            is_income INTEGER NOT NULL,
+            PRIMARY KEY (category_lower, username_lower, is_income),
             FOREIGN KEY (username_lower) REFERENCES users (username_lower)
         )",
         (),
     )
-    .expect("Error connecting with the balance sheet categories table");
+    .expect("Error connecting with the budget categories table");
 
-    // Add an Uncategorized type to the table for assets if it's not there yet
+    // Add an Uncategorized type to the table for income if it's not there yet
     conn.execute(
-        "INSERT OR IGNORE INTO balance_categories 
-        (category, category_lower, username_lower, is_asset) 
+        "INSERT OR IGNORE INTO budget_categories 
+        (category, category_lower, username_lower, is_income) 
         VALUES (\"Uncategorized\", \"uncategorized\", ?1, 1)",
         rusqlite::params![&user.username_lower],
     )
-    .expect("Error initializing the balance_categories table");
+    .expect("Error initializing the budget_categories table");
 
-    // Add an Uncategorized type to the table for liabilities if it's not there yet
+    // Add an Uncategorized type to the table for expenses if it's not there yet
     conn.execute(
-        "INSERT OR IGNORE INTO balance_categories 
-        (category, category_lower, username_lower, is_asset) 
+        "INSERT OR IGNORE INTO budget_categories 
+        (category, category_lower, username_lower, is_income) 
         VALUES (\"Uncategorized\", \"uncategorized\", ?1, 0)",
         rusqlite::params![&user.username_lower],
     )
-    .expect("Error initializing the balance_categories table");
+    .expect("Error initializing the budget_categories table");
 
-    // Create the balance_items table if it doesn't exist
+    // Create the budget_items table if it doesn't exist
     conn.execute(
-        "CREATE TABLE IF NOT EXISTS balance_items (
+        "CREATE TABLE IF NOT EXISTS budget_items (
                 item TEXT NOT NULL,
                 item_lower TEXT NOT NULL,
                 value REAL NOT NULL,
                 category TEXT NOT NULL,
                 category_lower TEXT NOT NULL,
                 username_lower TEXT NOT NULL,
-                is_asset INTEGER NOT NULL,
+                is_income INTEGER NOT NULL,
                 timeline_created INTEGER NOT NULL,
                 timeline_original INTEGER NOT NULL,
                 is_deleted INTEGER NOT NULL,
                 timeline_deleted INTEGER NOT NULL,
                 PRIMARY KEY (item_lower, username_lower, timeline_created),
                 FOREIGN KEY (username_lower) REFERENCES users (username_lower),
-                FOREIGN KEY (category_lower, username_lower, is_asset) REFERENCES balance_categories (category_lower, username_lower, is_asset)
+                FOREIGN KEY (category_lower, username_lower, is_income) REFERENCES budget_categories (category_lower, username_lower, is_income)
             );",
         (),
     )
-    .expect("Error connecting with the balance sheet items table");
+    .expect("Error connecting with the budget items table");
 
     // Create the timeline table to persist a timeline value per user
     // This stores an incrementing integer to demarcate a timeline
     // The timeline helps differentiate current a past values while avoiding unneccessary dates
     // It stores the most recently used integer. It should be pulled from the DB, incremented, used, then returned.
+    // I'm not sure if this will be useful for the budget, but will keep it in place for now
     conn.execute(
-        "CREATE TABLE IF NOT EXISTS balance_timeline (
+        "CREATE TABLE IF NOT EXISTS budget_timeline (
                 timestamp INTEGER NOT NULL,
                 username_lower TEXT NOT NULL,
                 PRIMARY KEY (username_lower)
             );",
         (),
     )
-    .expect("Error connecting with the balance sheet timeline table");
+    .expect("Error connecting with the budget timeline table");
 
     // Initialize the timeline to 0 for this user if it's not there yet
     conn.execute(
-        "INSERT OR IGNORE INTO balance_timeline (timestamp, username_lower) VALUES (0, ?1)",
+        "INSERT OR IGNORE INTO budget_timeline (timestamp, username_lower) VALUES (0, ?1)",
         rusqlite::params![&user.username_lower],
     )
-    .expect("Error initializing the balance_timeline table");
+    .expect("Error initializing the budget_timeline table");
 }
 
 /// Gets the timeline from the database and returns it ALREADY INCREMENTED and ready to use
@@ -821,7 +818,7 @@ fn get_and_update_timeline(conn: &Connection, user: &User) -> usize {
     // Get the new item's timeline_created value and increment it
     let timeline: usize;
     let mut stmt = conn
-        .prepare("SELECT timestamp FROM balance_timeline WHERE username_lower = ?1")
+        .prepare("SELECT timestamp FROM budget_timeline WHERE username_lower = ?1")
         .expect("Error preparing timeline statement");
     let mut rows = stmt
         .query(rusqlite::params![user.username.to_lowercase()])
@@ -836,7 +833,7 @@ fn get_and_update_timeline(conn: &Connection, user: &User) -> usize {
             timeline = timeline_returned + 1;
             // Reinsert the new timeline value into the database
             conn.execute(
-                "UPDATE balance_timeline SET timestamp = ?1 WHERE username_lower = ?2",
+                "UPDATE budget_timeline SET timestamp = ?1 WHERE username_lower = ?2",
                 (timeline, &user.username_lower),
             )
             .expect("Error updating the timeline database");

@@ -9,3 +9,6 @@ edition = "2021"
 rusqlite = { version = "0.30.0", features = ["bundled"] }
 chrono = { version = "0.4.31" }
 rusty-money = { version = "0.4.1" }
+# textplots = { version = "0.8" } THE CODE IS IN THE PROJECT DIRECTLY TO ALLOW MODIFICATION
+drawille = { version = "0.3.0" }
+rgb = { version = "0.8.37" }
