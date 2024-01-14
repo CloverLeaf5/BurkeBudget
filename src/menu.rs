@@ -2,8 +2,8 @@ use crate::structs_utils::*;
 use rusqlite::Connection;
 #[path = "balance_sheet.rs"]
 mod balance_sheet;
-// #[path = "budget.rs"]
-// mod budget;
+#[path = "budget.rs"]
+mod budget;
 
 /// Display the main menu and handle response
 pub fn main_menu(conn: &Connection, user: &User) {
@@ -11,7 +11,7 @@ pub fn main_menu(conn: &Connection, user: &User) {
         println!("\n\nWelcome {}\n", user.fullname());
         match print_instr_get_response(1, 3, || {
             println!("Which section would you like to use? (Enter the number)");
-            println!("1. Budget (coming soon!)");
+            println!("1. Budget");
             println!("2. Balance Sheet");
             println!("3. Quit");
         }) {
@@ -24,7 +24,7 @@ pub fn main_menu(conn: &Connection, user: &User) {
 }
 
 /// Display the budget menu
-pub fn budget_menu(_conn: &Connection, _user: &User) {
+pub fn budget_menu(conn: &Connection, user: &User) {
     loop {
         match print_instr_get_response(1, 5, || {
             println!(
@@ -41,9 +41,9 @@ pub fn budget_menu(_conn: &Connection, _user: &User) {
             println!("4. Main Menu");
             println!("5. Quit");
         }) {
-            1 => println!("Coming soon"), //budget::budget_whole_entry_point(conn, user),
-            2 => println!("Coming soon"), //budget::budget_half_entry_point(conn, user, BudgetHalf::Income),
-            3 => println!("Coming soon"), //budget::budget_half_entry_point(conn, user, BudgetHalf::Expenses),
+            1 => budget::budget_whole_entry_point(conn, user),
+            2 => budget::budget_half_entry_point(conn, user, BudgetHalf::Income),
+            3 => budget::budget_half_entry_point(conn, user, BudgetHalf::Expenses),
             4 => return,
             5 => {
                 println!(

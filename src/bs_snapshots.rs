@@ -83,7 +83,7 @@ pub fn view_snapshot_menu(conn: &Connection, user: &User) -> Result<()> {
         for snapshot in &snapshots {
             idx += 1;
             println!(
-                "{}.  {}: Net Worth {}",
+                "{}.  {}:  Net Worth  {}",
                 idx,
                 snapshot.date_today,
                 Money::from_str(snapshot.net_worth.to_string().as_str(), iso::USD).unwrap()
@@ -91,7 +91,7 @@ pub fn view_snapshot_menu(conn: &Connection, user: &User) -> Result<()> {
         }
         println!("\n0. GO BACK");
         let response = print_instr_get_response(0, idx, || {
-            println!("Which snapshot would you like to view");
+            println!("\nWhich snapshot would you like to view");
         });
         // Go back or go to snapshot viewer
         match response {

@@ -80,8 +80,8 @@ pub fn balance_sheet_whole_entry_point(conn: &Connection, user: &User) {
     }
 }
 
-// TODO: Don't need to check here if items / categories match which half
 /// Print out the half of the balance sheet and find out what the user wants to do
+/// It only receives the relevant half categories and items
 fn print_balance_sheet_half_get_response<'a, 'b, 'c>(
     categories: &'a Vec<Category>,
     items: &'b Vec<Item>,
@@ -92,34 +92,30 @@ fn print_balance_sheet_half_get_response<'a, 'b, 'c>(
     let mut sorted_items: Vec<&Item> = vec![];
 
     for category in categories {
-        if category.is_asset == which_half.to_bool() {
-            let mut no_items_found_in_cat = true;
-            // Check if any of the items are in this category
-            for item in items {
-                if item.category_lower == category.category_lower {
-                    no_items_found_in_cat = false;
-                }
+        let mut no_items_found_in_cat = true;
+        // Check if any of the items are in this category
+        for item in items {
+            if item.category_lower == category.category_lower {
+                no_items_found_in_cat = false;
             }
-            if no_items_found_in_cat {
-                continue; // Don't need to print this category if it has no items
-            }
-            println!("{}", category.category);
-            for item in items {
-                if item.is_asset == which_half.to_bool()
-                    && item.category_lower == category.category_lower
-                {
-                    print!("    {}. {} ", idx, item.item);
-                    let num_dashes: usize = MAX_CHARACTERS_ITEM_NAME + 1 - item.item.len();
-                    for _ in 0..num_dashes {
-                        print!("-");
-                    }
-                    println!(
-                        " {}",
-                        Money::from_str(item.value.to_string().as_str(), iso::USD).unwrap()
-                    );
-                    idx += 1;
-                    sorted_items.push(item);
+        }
+        if no_items_found_in_cat {
+            continue; // Don't need to print this category if it has no items
+        }
+        println!("{}", category.category);
+        for item in items {
+            if item.category_lower == category.category_lower {
+                print!("    {}. {} ", idx, item.item);
+                let num_dashes: usize = MAX_CHARACTERS_ITEM_NAME + 1 - item.item.len();
+                for _ in 0..num_dashes {
+                    print!("-");
                 }
+                println!(
+                    " {}",
+                    Money::from_str(item.value.to_string().as_str(), iso::USD).unwrap()
+                );
+                idx += 1;
+                sorted_items.push(item);
             }
         }
     }

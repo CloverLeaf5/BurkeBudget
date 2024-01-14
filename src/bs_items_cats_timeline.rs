@@ -246,7 +246,7 @@ pub fn rename_category(
                     &which_half.to_bool_int(),
                 ),
             )
-            .expect("Error updating the timeline database");
+            .expect("Error updating the balance sheet categories database");
         }
         x => panic!("Response {} is an error state. Exiting the program.", x),
     }
@@ -310,7 +310,7 @@ pub fn update_item(
         1 => {
             // Mark current one as deleted with proper timestamp
             // Create new one with proper timestamp
-            // Get The new item's name
+            // First get the new item name
             println!(
                 "If you would like to change the item's name from {}, what would you like to change it to?", item_chosen.item
             );

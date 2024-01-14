@@ -3,7 +3,7 @@ use rusqlite::{Connection, Result};
 
 #[derive(Debug, PartialEq)]
 enum BudgetSelection<'a> {
-    Some(&'a Item),
+    Some(&'a BudgetItem),
     NewCategory,
     NewItem,
     RenameCategory,
@@ -13,106 +13,85 @@ enum BudgetSelection<'a> {
 pub fn budget_half_entry_point(conn: &Connection, user: &User, which_half: BudgetHalf) {
     initialize_budget(conn, user);
     let (mut categories, mut items) = get_relevant_items(conn, user, &which_half)
-        .expect("There was an error accessing the Balance Sheet Database");
+        .expect("There was an error accessing the Budget Database");
     loop {
-        let response = print_balance_sheet_half_get_response(&categories, &items, &which_half);
+        let response = print_budget_half_get_response(&categories, &items, &which_half);
 
         match response {
-            BalanceSheetSelection::Some(item) => {
+            BudgetSelection::Some(item) => {
                 let idx = items
                     .iter()
                     .position(|i| i == item)
                     .expect("Error sending this item for updating");
                 update_item(conn, user, &which_half, &mut categories, &mut items, idx);
             }
-            BalanceSheetSelection::NewCategory => {
+            BudgetSelection::NewCategory => {
                 create_new_category(conn, user, &which_half, &mut categories)
             }
-            BalanceSheetSelection::NewItem => {
+            BudgetSelection::NewItem => {
                 create_new_item(conn, user, &which_half, &mut categories, &mut items)
             }
-            BalanceSheetSelection::RenameCategory => {
+            BudgetSelection::RenameCategory => {
                 rename_category(conn, user, &which_half, &mut categories)
             }
-            BalanceSheetSelection::GoBack => return,
+            BudgetSelection::GoBack => return,
         }
     }
 }
 
 pub fn budget_whole_entry_point(conn: &Connection, user: &User) {
-    initialize_balance_sheet(conn, user);
-    let (asset_categories, asset_items) = get_relevant_items(conn, user, &BalanceSheetHalf::Assets)
-        .expect("There was an error accessing the Balance Sheet Assets from the Database");
-    let (liability_categories, liability_items) =
-        get_relevant_items(conn, user, &BalanceSheetHalf::Liabilities)
-            .expect("There was an error accessing the Balance Sheet Liabilities from the Database");
-    // loop {
-    print_balance_sheet_get_response(
-        &asset_categories,
-        &asset_items,
-        &liability_categories,
-        &liability_items,
+    initialize_budget(conn, user);
+    let (income_categories, income_items) = get_relevant_items(conn, user, &BudgetHalf::Income)
+        .expect("There was an error accessing the Budget Income from the Database");
+    let (expense_categories, expense_items) = get_relevant_items(conn, user, &BudgetHalf::Expenses)
+        .expect("There was an error accessing the Budget Expenses from the Database");
+
+    let response = print_budget_get_response(
+        &income_categories,
+        &income_items,
+        &expense_categories,
+        &expense_items,
     );
 
-    //     match response {
-    //         BalanceSheetSelection::Some(item) => {
-    //             let idx = items
-    //                 .iter()
-    //                 .position(|i| i == item)
-    //                 .expect("Error sending this item for updating");
-    //             update_item(conn, user, &which_half, &mut categories, &mut items, idx);
-    //         }
-    //         BalanceSheetSelection::NewCategory => {
-    //             create_new_category(conn, user, &which_half, &mut categories)
-    //         }
-    //         BalanceSheetSelection::NewItem => {
-    //             create_new_item(conn, user, &which_half, &mut categories, &mut items)
-    //         }
-    //         BalanceSheetSelection::RenameCategory => {
-    //             rename_category(conn, user, &which_half, &mut categories)
-    //         }
-    //         BalanceSheetSelection::GoBack => return,
-    //     }
-    // }
+    // Response is irrelevant here
+    match response {
+        _ => return,
+    }
 }
 
-// TODO: Don't need to check here if items / categories match which half
-/// Print out the half of the balance sheet and find out what the user wants to do
-fn print_balance_sheet_half_get_response<'a, 'b, 'c>(
-    categories: &'a Vec<Category>,
-    items: &'b Vec<Item>,
-    which_half: &'c BalanceSheetHalf,
-) -> BalanceSheetSelection<'b> {
+/// Print out the half of the budget and find out what the user wants to do
+/// It only receives the relevant half categories and items
+fn print_budget_half_get_response<'a, 'b, 'c>(
+    categories: &'a Vec<BudgetCategory>,
+    items: &'b Vec<BudgetItem>,
+    which_half: &'c BudgetHalf,
+) -> BudgetSelection<'b> {
     println!("\nCurrent list of {}:", which_half.to_str().to_lowercase());
     let mut idx: usize = 1;
-    let mut sorted_items: Vec<&Item> = vec![];
+    let mut sorted_items: Vec<&BudgetItem> = vec![];
 
     for category in categories {
-        if category.is_asset == which_half.to_bool() {
-            let mut no_items_found_in_cat = true;
-            // Check if any of the items are in this category
-            for item in items {
-                if item.category_lower == category.category_lower {
-                    no_items_found_in_cat = false;
-                }
+        // Check if any of the items are in this category
+        let mut no_items_found_in_cat = true;
+        for item in items {
+            if item.category_lower == category.category_lower {
+                no_items_found_in_cat = false;
             }
-            if no_items_found_in_cat {
-                continue; // Don't need to print this category if it has no items
-            }
-            println!("{}", category.category);
-            for item in items {
-                if item.is_asset == which_half.to_bool()
-                    && item.category_lower == category.category_lower
-                {
-                    print!("    {}. {} ", idx, item.item);
-                    let num_dashes: usize = MAX_CHARACTERS_ITEM_NAME + 1 - item.item.len();
-                    for _ in 0..num_dashes {
-                        print!("-");
-                    }
-                    println!(" {}", item.value);
-                    idx += 1;
-                    sorted_items.push(item);
+        }
+        if no_items_found_in_cat {
+            continue; // Don't need to print this category if it has no items
+        }
+        println!("{}", category.category);
+        for item in items {
+            if item.category_lower == category.category_lower {
+                print!("    {}. {} ", idx, item.item);
+                let num_dashes: usize = MAX_CHARACTERS_ITEM_NAME + 1 - item.item.len();
+                for _ in 0..num_dashes {
+                    print!("-");
                 }
+                println!(" {}", item.value);
+                idx += 1;
+                sorted_items.push(item);
             }
         }
     }
@@ -121,33 +100,34 @@ fn print_balance_sheet_half_get_response<'a, 'b, 'c>(
     println!("  {}. NEW ITEM", idx);
     idx += 1;
     println!("{}. RENAME CATEGORY", idx);
-    println!("\n 0. GO BACK - Balance Sheet Menu");
+    println!("\n 0. GO BACK - Budget Menu");
     let response = print_instr_get_response(0, idx, || {
         println!("\nEnter the number of the item you'd like to update / delete, or one of the other numbers");
     });
     match response {
-        0 => BalanceSheetSelection::GoBack,
-        x if x > 0 && x <= idx - 3 => BalanceSheetSelection::Some(sorted_items.remove(x - 1)),
-        x if x == idx - 2 => BalanceSheetSelection::NewCategory,
-        x if x == idx - 1 => BalanceSheetSelection::NewItem,
-        x if x == idx => BalanceSheetSelection::RenameCategory,
+        0 => BudgetSelection::GoBack,
+        x if x > 0 && x <= idx - 3 => BudgetSelection::Some(sorted_items.remove(x - 1)),
+        x if x == idx - 2 => BudgetSelection::NewCategory,
+        x if x == idx - 1 => BudgetSelection::NewItem,
+        x if x == idx => BudgetSelection::RenameCategory,
         x => panic!("Response {} is an error state. Exiting the program.", x),
     }
 }
 
-fn print_balance_sheet_get_response(
-    asset_categories: &Vec<Category>,
-    asset_items: &Vec<Item>,
-    liability_categories: &Vec<Category>,
-    liability_items: &Vec<Item>,
-) {
-    println!("\nASSETS");
+/// Print out the whole budget
+fn print_budget_get_response(
+    income_categories: &Vec<BudgetCategory>,
+    income_items: &Vec<BudgetItem>,
+    expense_categories: &Vec<BudgetCategory>,
+    expense_items: &Vec<BudgetItem>,
+) -> String {
+    println!("\nINCOME");
     let mut idx: usize = 1;
-    let mut asset_total: f64 = 0.0;
-    for category in asset_categories {
-        let mut no_items_found_in_cat = true;
+    let mut income_total: f64 = 0.0;
+    for category in income_categories {
         // Check if any of the items are in this category
-        for item in asset_items {
+        let mut no_items_found_in_cat = true;
+        for item in income_items {
             if item.category_lower == category.category_lower {
                 no_items_found_in_cat = false;
             }
@@ -156,7 +136,7 @@ fn print_balance_sheet_get_response(
             continue; // Don't need to print this category if it has no items
         }
         println!("{}", category.category);
-        for item in asset_items {
+        for item in income_items {
             if item.category_lower == category.category_lower {
                 print!("    {}. {} ", idx, item.item);
                 let num_dashes: usize = MAX_CHARACTERS_ITEM_NAME + 1 - item.item.len();
@@ -165,20 +145,20 @@ fn print_balance_sheet_get_response(
                 }
                 println!(" {}", item.value);
                 idx += 1;
-                asset_total += item.value;
+                income_total += item.value;
             }
         }
     }
     println!("____________________________________________");
-    println!("Total Assets                    {}", asset_total);
+    println!("Total Income                    {}", income_total);
 
-    println!("\nLIABILITIES");
+    println!("\nEXPENSES");
     let mut idx: usize = 1;
-    let mut liability_total: f64 = 0.0;
-    for category in liability_categories {
-        let mut no_items_found_in_cat = true;
+    let mut expense_total: f64 = 0.0;
+    for category in expense_categories {
         // Check if any of the items are in this category
-        for item in liability_items {
+        let mut no_items_found_in_cat = true;
+        for item in expense_items {
             if item.category_lower == category.category_lower {
                 no_items_found_in_cat = false;
             }
@@ -187,7 +167,7 @@ fn print_balance_sheet_get_response(
             continue; // Don't need to print this category if it has no items
         }
         println!("{}", category.category);
-        for item in liability_items {
+        for item in expense_items {
             if item.category_lower == category.category_lower {
                 print!("    {}. {} ", idx, item.item);
                 let num_dashes: usize = MAX_CHARACTERS_ITEM_NAME + 1 - item.item.len();
@@ -196,17 +176,21 @@ fn print_balance_sheet_get_response(
                 }
                 println!(" {}", item.value);
                 idx += 1;
-                liability_total += item.value;
+                expense_total += item.value;
             }
         }
     }
     println!("____________________________________________");
-    println!("Total Liabilities               {}", liability_total);
+    println!("Total Expenses                  {}", expense_total);
 
     println!(
-        "\n\nTOTAL NET WORTH --------------- {}\n\n",
-        asset_total - liability_total
+        "\n\nTOTAL MONTHLY NET ------------- {}\n\n",
+        income_total - expense_total
     );
+
+    // Return
+    println!("\nPress enter to return.");
+    read_or_quit()
 }
 
 /// Category Creator
@@ -214,8 +198,8 @@ fn print_balance_sheet_get_response(
 fn create_new_category(
     conn: &Connection,
     user: &User,
-    which_half: &BalanceSheetHalf,
-    categories: &mut Vec<Category>,
+    which_half: &BudgetHalf,
+    categories: &mut Vec<BudgetCategory>,
 ) {
     println!("What would you like to call the new category?");
     let cat_name = read_or_quit();
@@ -232,15 +216,15 @@ fn create_new_category(
     }
     // Insert the new category into the database
     conn.execute(
-        "INSERT INTO balance_categories (category, category_lower, username_lower, is_asset) VALUES (?1, ?2, ?3, ?4)",
+        "INSERT INTO budget_categories (category, category_lower, username_lower, is_income) VALUES (?1, ?2, ?3, ?4)",
         (&cat_name, &cat_name.to_lowercase(), &user.username_lower, &which_half.to_bool_int()),
     ).expect("Error creating new category");
     // Add the category into the categories vector
-    categories.push(Category {
+    categories.push(BudgetCategory {
         category: cat_name.clone(),
         category_lower: String::from(cat_name.to_lowercase()),
         username_lower: String::from(&user.username_lower),
-        is_asset: which_half.to_bool(),
+        is_income: which_half.to_bool(),
     });
 }
 
@@ -249,9 +233,9 @@ fn create_new_category(
 fn create_new_item(
     conn: &Connection,
     user: &User,
-    which_half: &BalanceSheetHalf,
-    categories: &mut Vec<Category>,
-    items: &mut Vec<Item>,
+    which_half: &BudgetHalf,
+    categories: &mut Vec<BudgetCategory>,
+    items: &mut Vec<BudgetItem>,
 ) {
     println!("What would you like to name the new item?");
     // Get The new item's name
@@ -275,10 +259,12 @@ fn create_new_item(
 
     // Get the new item's value
     if which_half.to_bool() {
-        // is_asset
-        println!("What value does this item have currently?");
+        // is_income
+        println!("What is the average monthly income associated with this item?");
     } else {
-        println!("What is the current total cost of this liability? (positive number or 0)");
+        println!(
+            "What is the average monthly cost associated with this item? (positive number or 0)"
+        );
     }
     let mut value: f64 = -1.0;
     while value < 0.0 {
@@ -349,9 +335,9 @@ fn create_new_item(
 
     // Insert the new item into the database
     conn.execute(
-        "INSERT INTO balance_items 
+        "INSERT INTO budget_items 
         (item, item_lower, value, category, category_lower, username_lower, 
-            is_asset, timeline_created, timeline_original, is_deleted, timeline_deleted) 
+            is_income, timeline_created, timeline_original, is_deleted, timeline_deleted) 
         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
         (
             &item_name,
@@ -369,14 +355,14 @@ fn create_new_item(
     )
     .expect("Error creating new item");
     // Add the item into the items vector
-    items.push(Item {
+    items.push(BudgetItem {
         item: item_name.clone(),
         item_lower: String::from(item_name.to_lowercase()),
         value: value,
         category: chosen_cat.clone(),
         category_lower: String::from(chosen_cat.to_lowercase()),
         username_lower: String::from(&user.username_lower),
-        is_asset: which_half.to_bool(),
+        is_income: which_half.to_bool(),
         timeline_created: timeline,
         timeline_original: timeline,
         is_deleted: false,
@@ -389,14 +375,14 @@ fn create_new_item(
 fn rename_category(
     conn: &Connection,
     user: &User,
-    which_half: &BalanceSheetHalf,
-    categories: &mut Vec<Category>,
+    which_half: &BudgetHalf,
+    categories: &mut Vec<BudgetCategory>,
 ) {
     println!("\nRename a category ({}):", which_half.to_str());
     let mut idx: usize = 0;
 
     for category in &mut *categories {
-        if category.is_asset == which_half.to_bool() {
+        if category.is_income == which_half.to_bool() {
             idx += 1;
             println!("{}. {}", idx, category.category);
         }
@@ -431,9 +417,9 @@ fn rename_category(
             categories[x - 1].category_lower = new_name.to_ascii_lowercase();
 
             conn.execute(
-                "UPDATE balance_categories 
+                "UPDATE budget_categories 
                 SET category = ?1, category_lower = ?2 
-                WHERE username_lower = ?3 AND category = ?4 AND is_asset = ?5",
+                WHERE username_lower = ?3 AND category = ?4 AND is_income = ?5",
                 (
                     &new_name,
                     &new_name.to_ascii_lowercase(),
@@ -442,7 +428,7 @@ fn rename_category(
                     &which_half.to_bool_int(),
                 ),
             )
-            .expect("Error updating the timeline database");
+            .expect("Error updating the budget categories database");
         }
         x => panic!("Response {} is an error state. Exiting the program.", x),
     }
@@ -453,9 +439,9 @@ fn rename_category(
 fn update_item(
     conn: &Connection,
     user: &User,
-    which_half: &BalanceSheetHalf,
-    categories: &mut Vec<Category>,
-    items: &mut Vec<Item>,
+    which_half: &BudgetHalf,
+    categories: &mut Vec<BudgetCategory>,
+    items: &mut Vec<BudgetItem>,
     idx: usize,
 ) {
     // Need to remove the item from the vector to get ownership
@@ -481,7 +467,7 @@ fn update_item(
                     // Delete the item from the database and from the mutable vector
                     let timeline: usize = get_and_update_timeline(conn, user);
                     conn.execute(
-                        "UPDATE balance_items 
+                        "UPDATE budget_items 
                         SET is_deleted = 1, timeline_deleted = ?1
                         WHERE item_lower = ?2 AND username_lower = ?3 AND timeline_created = ?4",
                         (
@@ -506,7 +492,7 @@ fn update_item(
         1 => {
             // Mark current one as deleted with proper timestamp
             // Create new one with proper timestamp
-            // Get The new item's name
+            // First get the new item name
             println!(
                 "If you would like to change the item's name from {}, what would you like to change it to?", item_chosen.item
             );
@@ -527,14 +513,14 @@ fn update_item(
 
             // Get the new item's value
             if which_half.to_bool() {
-                // is_asset
+                // is_income
                 println!(
-                    "The current value of {} is listed as {}. Enter a new value to change it.",
+                    "The current monthly income associated with {} is listed as {}. Enter a new value to change it.",
                     item_name, item_chosen.value
                 );
             } else {
                 println!(
-                    "The current cost of {} is listed as {}. Enter a new liability cost to change it (positive number or 0).",
+                    "The current monthly cost associated with {} is listed as {}. Enter a new cost to change it (positive number or 0).",
                     item_name, item_chosen.value
                 );
             }
@@ -623,7 +609,7 @@ fn update_item(
 
             // Mark the former version of the item as deleted
             conn.execute(
-                "UPDATE balance_items 
+                "UPDATE budget_items 
                 SET is_deleted = 1, timeline_deleted = ?1
                 WHERE item_lower = ?2 AND username_lower = ?3 AND timeline_created = ?4",
                 (
@@ -640,9 +626,9 @@ fn update_item(
 
             // Insert the new item into the database
             conn.execute(
-                "INSERT INTO balance_items 
+                "INSERT INTO budget_items 
                 (item, item_lower, value, category, category_lower, username_lower, 
-                    is_asset, timeline_created, timeline_original, is_deleted, timeline_deleted) 
+                    is_income, timeline_created, timeline_original, is_deleted, timeline_deleted) 
                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
                 (
                     &item_name,
@@ -660,14 +646,14 @@ fn update_item(
             )
             .expect("Error creating new item");
             // Add the updated item into the items vector (since the old one was already removed)
-            items.push(Item {
+            items.push(BudgetItem {
                 item: item_name.clone(),
                 item_lower: String::from(item_name.to_lowercase()),
                 value: value,
                 category: chosen_cat.clone(),
                 category_lower: String::from(chosen_cat.to_lowercase()),
                 username_lower: String::from(&user.username_lower),
-                is_asset: which_half.to_bool(),
+                is_income: which_half.to_bool(),
                 timeline_created: timeline,
                 timeline_original: item_chosen.timeline_original,
                 is_deleted: false,
@@ -678,46 +664,46 @@ fn update_item(
     }
 }
 
-/// Get the relevant half of the balance sheet
+/// Get the relevant half of the budget
 fn get_relevant_items(
     conn: &Connection,
     user: &User,
-    which_half: &BalanceSheetHalf,
-) -> Result<(Vec<Category>, Vec<Item>)> {
+    which_half: &BudgetHalf,
+) -> Result<(Vec<BudgetCategory>, Vec<BudgetItem>)> {
     // Push all of the categories to a vector first
-    let mut categories: Vec<Category> = vec![];
+    let mut categories: Vec<BudgetCategory> = vec![];
     let mut stmt =
-        conn.prepare("SELECT * FROM balance_categories WHERE is_asset=?1 AND username_lower=?2")?;
+        conn.prepare("SELECT * FROM budget_categories WHERE is_income=?1 AND username_lower=?2")?;
     let mut rows = stmt.query(rusqlite::params![
         which_half.to_bool_int(),
         user.username_lower
     ])?;
     while let Some(row) = rows.next()? {
-        categories.push(Category {
+        categories.push(BudgetCategory {
             category: row.get(0)?,
             category_lower: row.get(1)?,
             username_lower: row.get(2)?,
-            is_asset: row.get(3)?,
+            is_income: row.get(3)?,
         })
     }
     // Next push all of the active items to a vector
-    let mut items: Vec<Item> = vec![];
+    let mut items: Vec<BudgetItem> = vec![];
     let mut stmt = conn.prepare(
-        "SELECT * FROM balance_items WHERE is_deleted=0 AND is_asset=?1 AND username_lower=?2",
+        "SELECT * FROM budget_items WHERE is_deleted=0 AND is_income=?1 AND username_lower=?2",
     )?;
     let mut rows = stmt.query(rusqlite::params![
         which_half.to_bool_int(),
         user.username_lower
     ])?;
     while let Some(row) = rows.next()? {
-        items.push(Item {
+        items.push(BudgetItem {
             item: row.get(0)?,
             item_lower: row.get(1)?,
             value: row.get(2)?,
             category: row.get(3)?,
             category_lower: row.get(4)?,
             username_lower: row.get(5)?,
-            is_asset: row.get(6)?,
+            is_income: row.get(6)?,
             timeline_created: row.get(7)?,
             timeline_original: row.get(8)?,
             is_deleted: row.get(9)?,
@@ -729,12 +715,6 @@ fn get_relevant_items(
 
 /// Set up the tables for the budget for this user
 fn initialize_budget(conn: &Connection, user: &User) {
-    // conn.execute_batch(
-    //     "DROP TABLE IF EXISTS budget_items;
-    //     DROP TABLE IF EXISTS budget_categories;
-    //     DROP TABLE IF EXISTS budget_timeline",
-    // )
-    // .unwrap();
     // Create the budget_categories table if it doesn't exist
     conn.execute(
         "CREATE TABLE IF NOT EXISTS budget_categories (

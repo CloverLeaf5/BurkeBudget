@@ -1,25 +1,16 @@
-INPUT A DEFAULT USER INTO THE USER TABLE    
-    // let pretend_user = User {
-    //     username: String::from("PATRICKBURKE"),
-    //     username_lower: String::from("patrickburke"),
-    //     firstname: String::from("PATRICK"),
-    //     lastname: String::from("BURKE"),
-    // };
-    // conn.execute(
-    //     "INSERT INTO users (username, username_lower, firstname, lastname) VALUES (?1, ?2, ?3, ?4)",
-    //     (
-    //         &pretend_user.username,
-    //         &pretend_user.username_lower,
-    //         &pretend_user.firstname,
-    //         &pretend_user.lastname,
-    //     ),
-    // )?;
-
 DROP BALANCE SHEET TABLES
     // conn.execute_batch(
     //     "DROP TABLE IF EXISTS balance_items;
     //     DROP TABLE IF EXISTS balance_categories;
     //     DROP TABLE IF EXISTS balance_timeline;
     //     DROP TABLE IF EXISTS balance_snapshots",
+    // )
+    // .unwrap();
+
+DROP BUDGET TABLES
+    // conn.execute_batch(
+    //     "DROP TABLE IF EXISTS budget_items;
+    //     DROP TABLE IF EXISTS budget_categories;
+    //     DROP TABLE IF EXISTS budget_timeline",
     // )
     // .unwrap();

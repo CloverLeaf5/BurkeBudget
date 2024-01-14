@@ -13,12 +13,22 @@ impl User {
     }
 }
 
+/// Balance Sheet Category
 #[derive(Debug, PartialEq)]
 pub struct Category {
     pub category: String,
     pub category_lower: String,
     pub username_lower: String,
     pub is_asset: bool,
+}
+
+/// Budget Category
+#[derive(Debug, PartialEq)]
+pub struct BudgetCategory {
+    pub category: String,
+    pub category_lower: String,
+    pub username_lower: String,
+    pub is_income: bool,
 }
 /// Refers to an asset or liability item
 /// category_lower and username_lower referance the balance_categories and users tables, respectively
@@ -36,6 +46,22 @@ pub struct Item {
     pub category_lower: String,
     pub username_lower: String,
     pub is_asset: bool,
+    pub timeline_created: usize,
+    pub timeline_original: usize,
+    pub is_deleted: bool,
+    pub timeline_deleted: usize,
+}
+
+/// Income or Expense Budget Item
+#[derive(Debug, PartialEq)]
+pub struct BudgetItem {
+    pub item: String,
+    pub item_lower: String,
+    pub value: f64,
+    pub category: String,
+    pub category_lower: String,
+    pub username_lower: String,
+    pub is_income: bool,
     pub timeline_created: usize,
     pub timeline_original: usize,
     pub is_deleted: bool,

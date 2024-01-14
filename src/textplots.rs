@@ -138,12 +138,12 @@ impl<'a> Display for Chart<'a> {
             frame.insert_str(idx, &format!(" {0}", self.format_y_axis_tick(self.ymax)));
 
             // MY ADDED CODE
-            let num_steps = self.height / 9 + 1;
+            let num_steps = self.height / 14 + 1; // Division to allow for scaling between character height and rows and spacing
             let step = (self.ymax - self.ymin) / num_steps as f32;
             for i in 1..(num_steps) {
                 let matched_tuples: Vec<(usize, &str)> = frame.match_indices('\n').collect();
                 frame.insert_str(
-                    matched_tuples[(i * 2) as usize].0,
+                    matched_tuples[(i * 3) as usize].0,
                     &format!(
                         " {0}",
                         self.format_y_axis_tick(self.ymax - (step * i as f32))

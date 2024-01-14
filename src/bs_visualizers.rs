@@ -53,12 +53,12 @@ fn side_by_side_snapshots(conn: &Connection, user: &User) -> Result<()> {
     // Print out listing of snapshots
     println!("\n\nSide-By-Side Comparison");
     println!("Select up to 5 snapshots to view side-by-side");
-    println!("\n\nSaved Snapshots:");
+    println!("\nSaved Snapshots:");
     let mut idx: usize = 0;
     for snapshot in &snapshots {
         idx += 1;
         println!(
-            "{}.  {}: Net Worth {}",
+            "{}.  {}:  Net Worth  {}",
             idx,
             snapshot.date_today,
             Money::from_str(snapshot.net_worth.to_string().as_str(), iso::USD,).unwrap()
@@ -75,7 +75,7 @@ fn side_by_side_snapshots(conn: &Connection, user: &User) -> Result<()> {
     match parse_space_delim_response_for_int_to_index(response, 1, idx) {
         Some(selected_indices) => print_side_by_side(conn, user, snapshots, selected_indices),
         None => {
-            println!("Incorrect input given. Please try again.");
+            println!("\nNo correct inputs were given. Please try again.");
             return Ok(());
         }
     }
@@ -249,6 +249,11 @@ fn print_side_by_side(
         }
     }
     // Print Asset totals
+    print!("{}", "_".repeat(MAX_CHARACTERS_ITEM_NAME + 2));
+    for _ in 0..selected_indices.len() {
+        print!("{}", "_".repeat(COL_WIDTH + 2));
+    }
+    print!("\n");
     print!(
         "TOTAL ASSETS {} ",
         " ".repeat(MAX_CHARACTERS_ITEM_NAME - 12)
@@ -392,6 +397,11 @@ fn print_side_by_side(
         }
     }
     // Print Liability totals
+    print!("{}", "_".repeat(MAX_CHARACTERS_ITEM_NAME + 2));
+    for _ in 0..selected_indices.len() {
+        print!("{}", "_".repeat(COL_WIDTH + 2));
+    }
+    print!("\n");
     print!(
         "TOTAL LIABILITIES {} ",
         " ".repeat(MAX_CHARACTERS_ITEM_NAME - 17)
@@ -410,6 +420,11 @@ fn print_side_by_side(
     print!("\n\n");
 
     // Print Grand totals
+    print!("{}", "_".repeat(MAX_CHARACTERS_ITEM_NAME + 2));
+    for _ in 0..selected_indices.len() {
+        print!("{}", "_".repeat(COL_WIDTH + 2));
+    }
+    print!("\n");
     print!(
         "TOTAL NET WORTH {} ",
         " ".repeat(MAX_CHARACTERS_ITEM_NAME - 15)
@@ -443,17 +458,34 @@ fn parse_space_delim_response_for_int_to_index(
         match val.parse::<usize>() {
             Ok(parsed) => {
                 // There is a number here
-                if parsed >= minval && parsed <= maxval && !vals.contains(&parsed) {
-                    // This is a correct number
+                if parsed >= minval && parsed <= maxval && !vals.contains(&(parsed - 1)) {
+                    // This is a correct number, subtract one to convert input number to index in snapshots vector
                     vals.push(parsed - 1);
+                } else if parsed >= minval && parsed <= maxval && vals.contains(&(parsed - 1)) {
+                    // This value is already in the vals vector
+                    println!("\n{} was a duplicate. It only can be entered once.", val);
+                    continue;
                 } else {
-                    return None;
+                    // This is a number but outside the acceptable range
+                    println!("\n{} wasn't included as it was an invalid response.", val);
+                    continue;
                 }
             }
-            Err(_) => return None,
+            Err(_) => {
+                if val != "" {
+                    println!(
+                        "\n\"{}\" wasn't included as it was not a valid number.",
+                        val
+                    );
+                    println!("Enter only the numbers of the snapshots you'd like to include, separated by a single space.");
+                }
+                continue;
+            }
         }
     }
-    if vals.len() > 5 {
+    if vals.len() == 0 {
+        None
+    } else if vals.len() > 5 {
         Some(vals[0..5].to_vec())
     } else {
         Some(vals)
@@ -539,7 +571,7 @@ fn net_worth_graph(conn: &Connection, user: &User) -> Result<()> {
     let lines = Shape::Lines(points.as_slice());
     let mut plot = Chart::new_with_y_range(
         250,
-        81,
+        75,
         0.0 as f32,
         (snapshots.len() - 1) as f32,
         (min_val * 1.2) as f32,
