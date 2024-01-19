@@ -584,27 +584,11 @@ fn net_worth_graph(conn: &Connection, user: &User) -> Result<()> {
         } else {
             // SCALED X-AXIS VERSION OF THE PLOT
             // Guaranteed to have at least 2 snapshots
-            // let first_date_str: Vec<&str> =
-            //     snapshots.first().unwrap().date_today.split('-').collect();
-            // let first_date = chrono::NaiveDate::from_ymd_opt(
-            //     first_date_str[0].parse::<i32>().unwrap(),
-            //     first_date_str[1].parse::<u32>().unwrap(),
-            //     first_date_str[2].parse::<u32>().unwrap(),
-            // )
-            // .unwrap();
             let first_date = chrono::NaiveDate::parse_from_str(
                 snapshots.first().unwrap().date_today.as_str(),
                 "%Y-%m-%d",
             )
             .unwrap();
-            // let last_date_str: Vec<&str> =
-            //     snapshots.last().unwrap().date_today.split('-').collect();
-            // let last_date = chrono::NaiveDate::from_ymd_opt(
-            //     last_date_str[0].parse::<i32>().unwrap(),
-            //     last_date_str[1].parse::<u32>().unwrap(),
-            //     last_date_str[2].parse::<u32>().unwrap(),
-            // )
-            // .unwrap();
             let last_date = chrono::NaiveDate::parse_from_str(
                 snapshots.last().unwrap().date_today.as_str(),
                 "%Y-%m-%d",
@@ -617,13 +601,6 @@ fn net_worth_graph(conn: &Connection, user: &User) -> Result<()> {
             let mut min_val: f64 = f64::MAX;
             let mut max_val: f64 = f64::MIN;
             for snapshot in &snapshots {
-                // let date_str: Vec<&str> = snapshot.date_today.split('-').collect();
-                // let snap_date = chrono::NaiveDate::from_ymd_opt(
-                //     date_str[0].parse::<i32>().unwrap(),
-                //     date_str[1].parse::<u32>().unwrap(),
-                //     date_str[2].parse::<u32>().unwrap(),
-                // )
-                // .unwrap();
                 let snap_date =
                     chrono::NaiveDate::parse_from_str(snapshot.date_today.as_str(), "%Y-%m-%d")
                         .unwrap();
