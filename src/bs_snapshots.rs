@@ -1,3 +1,4 @@
+use super::bs_items_cats_timeline::get_and_update_timeline;
 use crate::structs_utils::*;
 use chrono::prelude::*;
 use rusqlite::{Connection, Result};
@@ -5,31 +6,8 @@ use rusqlite::{Connection, Result};
 /// Store a snapshot in the database (not that it mainly stores a timestamp and sparse details)
 /// The Balance Sheet can be reconstructed by accessing the database with this information
 pub fn create_snapshot(conn: &Connection, user: &User, net_worth: f64) -> Result<()> {
-    // Get current timestamp without updating it
-    // This should be the last used timestamp on the timeline
-    let mut stmt =
-        conn.prepare("SELECT timestamp FROM balance_timeline WHERE username_lower = ?1")?;
-    let mut rows = stmt.query(rusqlite::params![user.username_lower])?;
-    let timestamp: usize = rows
-        .next()?
-        .expect("Timeline query returned empty")
-        .get(0)?;
-
-    // Check if a snapshot has already been made for this timestamp
-    let mut stmt = conn.prepare(
-        "SELECT timestamp FROM balance_snapshots 
-        WHERE timestamp = ?1 AND username_lower = ?2 AND is_deleted = 0",
-    )?;
-    let mut rows = stmt.query(rusqlite::params![timestamp, user.username_lower])?;
-    let row = rows.next()?;
-
-    // Already created
-    if let Some(_same_timestamp) = row {
-        println!("\nA snapshot has already been created for the current balance sheet state.");
-        println!("\nPress Enter to go back.");
-        read_or_quit(); // Give the user a chance to acknowledge
-        return Ok(());
-    }
+    // The timestamp is incremented with a new timestamp to allow for multiple snapshots for the same balance sheet state
+    let timestamp = get_and_update_timeline(conn, user);
 
     let date_today = Local::now().format("%Y-%m-%d").to_string(); // YYYY-MM-DD
 
