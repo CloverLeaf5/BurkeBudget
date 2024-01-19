@@ -1,7 +1,6 @@
 use crate::structs_utils::*;
 use chrono::prelude::*;
 use rusqlite::{Connection, Result};
-use rusty_money::{iso, Money};
 
 mod bs_items_cats_timeline;
 use bs_items_cats_timeline::*;
@@ -82,11 +81,11 @@ pub fn balance_sheet_whole_entry_point(conn: &Connection, user: &User) {
 
 /// Print out the half of the balance sheet and find out what the user wants to do
 /// It only receives the relevant half categories and items
-fn print_balance_sheet_half_get_response<'a, 'b, 'c>(
-    categories: &'a Vec<Category>,
-    items: &'b Vec<Item>,
-    which_half: &'c BalanceSheetHalf,
-) -> BalanceSheetSelection<'b> {
+fn print_balance_sheet_half_get_response<'a>(
+    categories: &Vec<Category>,
+    items: &'a Vec<Item>,
+    which_half: &BalanceSheetHalf,
+) -> BalanceSheetSelection<'a> {
     println!("\nCurrent list of {}:", which_half.to_str().to_lowercase());
     let mut idx: usize = 1;
     let mut sorted_items: Vec<&Item> = vec![];
@@ -106,14 +105,18 @@ fn print_balance_sheet_half_get_response<'a, 'b, 'c>(
         for item in items {
             if item.category_lower == category.category_lower {
                 print!("    {}. {} ", idx, item.item);
-                let num_dashes: usize = MAX_CHARACTERS_ITEM_NAME + 1 - item.item.len();
+                let mut num_dashes: usize = MAX_CHARACTERS_ITEM_NAME + 1 - item.item.len();
+                // Support prooper formatting up to 999 items
+                if idx >= 10 {
+                    num_dashes -= 1;
+                }
+                if idx >= 100 {
+                    num_dashes -= 1;
+                }
                 for _ in 0..num_dashes {
                     print!("-");
                 }
-                println!(
-                    " {}",
-                    Money::from_str(item.value.to_string().as_str(), iso::USD).unwrap()
-                );
+                println!(" {}", to_money_string(item.value));
                 idx += 1;
                 sorted_items.push(item);
             }
@@ -121,7 +124,7 @@ fn print_balance_sheet_half_get_response<'a, 'b, 'c>(
     }
     println!("\n{}. NEW CATEGORY", idx);
     idx += 1;
-    println!("  {}. NEW ITEM", idx);
+    println!("    {}. NEW ITEM", idx);
     idx += 1;
     println!("{}. RENAME CATEGORY", idx);
     println!("\n0. GO BACK - Balance Sheet Menu");
@@ -145,9 +148,8 @@ fn print_balance_sheet_get_response(
     liability_items: &Vec<Item>,
 ) -> (usize, f64) {
     let today_date = Local::now().format("%Y-%m-%d").to_string();
-    println!("\n\nCurrent balance sheet - {}", today_date);
+    println!("\n\nCurrent Balance Sheet - {}", today_date);
     println!("\nASSETS");
-    let mut idx: usize = 1;
     let mut asset_total: f64 = 0.0;
     for category in asset_categories {
         let mut no_items_found_in_cat = true;
@@ -163,16 +165,12 @@ fn print_balance_sheet_get_response(
         println!("{}", category.category);
         for item in asset_items {
             if item.category_lower == category.category_lower {
-                print!("    {}. {} ", idx, item.item);
-                let num_dashes: usize = MAX_CHARACTERS_ITEM_NAME + 1 - item.item.len();
+                print!("    {} ", item.item);
+                let num_dashes: usize = MAX_CHARACTERS_ITEM_NAME + 4 - item.item.len();
                 for _ in 0..num_dashes {
                     print!("-");
                 }
-                println!(
-                    " {}",
-                    Money::from_str(item.value.to_string().as_str(), iso::USD).unwrap()
-                );
-                idx += 1;
+                println!(" {}", to_money_string(item.value));
                 asset_total += item.value;
             }
         }
@@ -185,13 +183,9 @@ fn print_balance_sheet_get_response(
     for _ in 0..(MAX_CHARACTERS_ITEM_NAME - 2) {
         print!(" ");
     }
-    println!(
-        "{}",
-        Money::from_str(asset_total.to_string().as_str(), iso::USD).unwrap()
-    );
+    println!("{}", to_money_string(asset_total));
 
     println!("\nLIABILITIES");
-    let mut idx: usize = 1;
     let mut liability_total: f64 = 0.0;
     for category in liability_categories {
         let mut no_items_found_in_cat = true;
@@ -207,16 +201,12 @@ fn print_balance_sheet_get_response(
         println!("{}", category.category);
         for item in liability_items {
             if item.category_lower == category.category_lower {
-                print!("    {}. {} ", idx, item.item);
-                let num_dashes: usize = MAX_CHARACTERS_ITEM_NAME + 1 - item.item.len();
+                print!("    {} ", item.item);
+                let num_dashes: usize = MAX_CHARACTERS_ITEM_NAME + 4 - item.item.len();
                 for _ in 0..num_dashes {
                     print!("-");
                 }
-                println!(
-                    " {}",
-                    Money::from_str(item.value.to_string().as_str(), iso::USD).unwrap()
-                );
-                idx += 1;
+                println!(" {}", to_money_string(item.value));
                 liability_total += item.value;
             }
         }
@@ -229,16 +219,13 @@ fn print_balance_sheet_get_response(
     for _ in 0..(MAX_CHARACTERS_ITEM_NAME - 7) {
         print!(" ");
     }
-    println!(
-        "{}",
-        Money::from_str(liability_total.to_string().as_str(), iso::USD).unwrap()
-    );
+    println!("{}", to_money_string(liability_total));
 
     // Grand total
     let total = asset_total - liability_total;
     println!(
-        "\n\nTOTAL NET WORTH -------------------  {}",
-        Money::from_str(total.to_string().as_str(), iso::USD).unwrap()
+        "\n\nTOTAL NET WORTH --------------------  {}",
+        to_money_string(total)
     );
 
     println!(
@@ -392,7 +379,7 @@ fn initialize_balance_sheet(conn: &Connection, user: &User) {
                 net_worth REAL NOT NULL,
                 comment TEXT NOT NULL,
                 is_deleted INTEGER NOT NULL,
-                PRIMARY KEY (timestamp, username_lower)
+                PRIMARY KEY (timestamp, username_lower, is_deleted)
                 FOREIGN KEY (username_lower) REFERENCES users (username_lower)
             );",
         (),

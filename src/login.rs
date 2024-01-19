@@ -20,34 +20,35 @@ pub fn login(conn: &Connection) -> Result<User> {
 
     // Get username from user
     println!("Enter username to login or signup:");
-    let username: String = read_or_quit();
+    let mut username: String = read_or_quit();
+
+    // Make sure the username's length is not 0
+    while username.is_empty() {
+        println!("\nThe username cannot be empty.");
+        println!("Enter username to login or signup:");
+        username = read_or_quit();
+    }
 
     // Check if the username is already in the database
     let mut stmt = conn.prepare("SELECT * FROM users WHERE username_lower = ?1")?;
     let mut rows = stmt.query(rusqlite::params![username.to_lowercase()])?;
     match rows.next()? {
         // Username found, return User to main function
-        Some(row) => {
-            return Ok(User {
-                username: row.get(0)?,
-                username_lower: row.get(1)?,
-                firstname: row.get(2)?,
-                lastname: row.get(3)?,
-                is_deleted: row.get(4)?,
-            })
-        }
+        Some(row) => Ok(User {
+            username: row.get(0)?,
+            username_lower: row.get(1)?,
+            firstname: row.get(2)?,
+            lastname: row.get(3)?,
+            is_deleted: row.get(4)?,
+        }),
         // Username not found, may need to see list or signup
         None => {
             println!("\nThat user was not found.");
             match vieworsignup(&username).as_str() {
                 // View list of users and choose one or signup
-                "view" => {
-                    return chooseorsignup(conn, username);
-                }
+                "view" => chooseorsignup(conn, username),
                 // Sign up the user
-                "signup" => {
-                    return signup(conn, username);
-                }
+                "signup" => signup(conn, username),
                 // Should not get any other responses
                 _ => {
                     panic!("Error: Unknown response from view or signup function");
@@ -130,11 +131,11 @@ fn signup(conn: &Connection, username: String) -> Result<User> {
     )?;
 
     // Return the new User to be returned to the main function
-    return Ok(User {
+    Ok(User {
         username: username.clone(),
         username_lower: username.to_lowercase(),
-        firstname: firstname,
-        lastname: lastname,
+        firstname,
+        lastname,
         is_deleted: false,
-    });
+    })
 }

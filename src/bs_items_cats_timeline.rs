@@ -11,12 +11,16 @@ pub fn create_new_category(
 ) {
     println!("What would you like to call the new category?");
     let cat_name = read_or_quit();
-    // Can't have zero length
-    if cat_name.len() == 0 {
-        println!("Cannot have an empty name. Press Enter to go back");
-        read_or_quit(); // Allow user to acknowledge
+
+    // Return if the new name is empty
+    if cat_name.is_empty() {
+        println!("The category name cannot be empty. Please try again.");
+        println!("Hit Enter to go back.");
+        // Give the user a chance to acknowledge
+        read_or_quit();
         return;
     }
+
     // Check if the category already exists
     for category in &mut *categories {
         if cat_name.to_lowercase() == category.category_lower {
@@ -36,7 +40,7 @@ pub fn create_new_category(
     // Add the category into the categories vector
     categories.push(Category {
         category: cat_name.clone(),
-        category_lower: String::from(cat_name.to_lowercase()),
+        category_lower: cat_name.to_lowercase(),
         username_lower: String::from(&user.username_lower),
         is_asset: which_half.to_bool(),
     });
@@ -55,7 +59,7 @@ pub fn create_new_item(
     // Get The new item's name
     let item_name = read_or_quit();
     // Can't have zero length
-    if item_name.len() == 0 {
+    if item_name.is_empty() {
         println!("Cannot have an empty name. Press Enter to go back");
         read_or_quit(); // Allow user to acknowledge
         return;
@@ -77,6 +81,15 @@ pub fn create_new_item(
         return;
     }
 
+    // Return if the new name is empty
+    if item_name.is_empty() {
+        println!("The item name cannot be empty. Please try again.");
+        println!("Hit Enter to go back.");
+        // Give the user a chance to acknowledge
+        read_or_quit();
+        return;
+    }
+
     // Get the new item's value
     if which_half.to_bool() {
         // is_asset
@@ -92,6 +105,8 @@ pub fn create_new_item(
             Ok(poss_value) => {
                 if poss_value < 0.0 {
                     println!("\nPlease enter a positive number.");
+                } else if poss_value > MAX_ITEM_VALUE {
+                    println!("\n1 quadrillion is the maximum value for an item currently.");
                 } else {
                     value = poss_value;
                 }
@@ -175,10 +190,10 @@ pub fn create_new_item(
     // Add the item into the items vector
     items.push(Item {
         item: item_name.clone(),
-        item_lower: String::from(item_name.to_lowercase()),
-        value: value,
+        item_lower: item_name.to_lowercase(),
+        value,
         category: chosen_cat.clone(),
-        category_lower: String::from(chosen_cat.to_lowercase()),
+        category_lower: chosen_cat.to_lowercase(),
         username_lower: String::from(&user.username_lower),
         is_asset: which_half.to_bool(),
         timeline_created: timeline,
@@ -210,7 +225,7 @@ pub fn rename_category(
         println!("Enter the number of the category you'd like to rename.");
     });
     match response {
-        0 => return,
+        0 => (),
         x if x > 0 && x <= idx => {
             println!(
                 "What would you like to rename {}?",
@@ -221,6 +236,16 @@ pub fn rename_category(
                     .clone()
             );
             let new_name = read_or_quit();
+
+            // Return if the new name is empty
+            if new_name.is_empty() {
+                println!("The category name cannot be empty. Please try again.");
+                println!("Hit Enter to go back.");
+                // Give the user a chance to acknowledge
+                read_or_quit();
+                return;
+            }
+
             // Check if it exists already, and return if it does
             for category in &mut *categories {
                 if new_name.to_ascii_lowercase() == category.category_lower {
@@ -274,7 +299,7 @@ pub fn update_item(
         0 => {
             // Must push the item back into the vector
             items.push(item_chosen);
-            return;
+            // return
         }
         2 => {
             println!("Are you sure you'd like to delete this item? This cannot be undone.");
@@ -297,12 +322,12 @@ pub fn update_item(
                     )
                     .expect("Error deleting the item");
                     // The item is already removed from the vector and will go out of scope here
-                    return;
+                    // return
                 }
                 2 => {
                     // Must push the item back into the vector
                     items.push(item_chosen);
-                    return;
+                    // return
                 }
                 x => panic!("Response {} is an error state. Exiting the program.", x),
             }
@@ -324,7 +349,7 @@ pub fn update_item(
                     return;
                 }
             }
-            if item_name.len() == 0 {
+            if item_name.is_empty() {
                 // They would like to not change the item name
                 item_name = String::from(&item_chosen.item);
             }
@@ -334,19 +359,20 @@ pub fn update_item(
                 // is_asset
                 println!(
                     "The current value of {} is listed as {}. Enter a new value to change it.",
-                    item_name, item_chosen.value
+                    item_name,
+                    to_money_string(item_chosen.value)
                 );
             } else {
                 println!(
                     "The current cost of {} is listed as {}. Enter a new liability cost to change it (positive number or 0).",
-                    item_name, item_chosen.value
+                    item_name, to_money_string(item_chosen.value)
                 );
             }
             println!("Or just leave it blank and hit Enter to keep the value the same.");
             let mut value: f64 = -1.0;
             while value < 0.0 {
                 let val_response = read_or_quit();
-                if val_response.len() == 0 {
+                if val_response.is_empty() {
                     // The user would like to not change the value
                     value = item_chosen.value;
                     break;
@@ -356,6 +382,8 @@ pub fn update_item(
                     Ok(poss_value) => {
                         if poss_value < 0.0 {
                             println!("\nPlease enter a positive number.");
+                        } else if poss_value > MAX_ITEM_VALUE {
+                            println!("\n1 quadrillion is the maximum value for an item currently.");
                         } else {
                             value = poss_value;
                         }
@@ -466,10 +494,10 @@ pub fn update_item(
             // Add the updated item into the items vector (since the old one was already removed)
             items.push(Item {
                 item: item_name.clone(),
-                item_lower: String::from(item_name.to_lowercase()),
-                value: value,
+                item_lower: item_name.to_lowercase(),
+                value,
                 category: chosen_cat.clone(),
-                category_lower: String::from(chosen_cat.to_lowercase()),
+                category_lower: chosen_cat.to_lowercase(),
                 username_lower: String::from(&user.username_lower),
                 is_asset: which_half.to_bool(),
                 timeline_created: timeline,

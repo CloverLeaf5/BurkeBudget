@@ -1,4 +1,5 @@
 use crate::structs_utils::*;
+use chrono::prelude::*;
 use rusqlite::{Connection, Result};
 
 #[derive(Debug, PartialEq)]
@@ -46,26 +47,22 @@ pub fn budget_whole_entry_point(conn: &Connection, user: &User) {
     let (expense_categories, expense_items) = get_relevant_items(conn, user, &BudgetHalf::Expenses)
         .expect("There was an error accessing the Budget Expenses from the Database");
 
-    let response = print_budget_get_response(
+    // Response is irrelevant here
+    print_budget_get_response(
         &income_categories,
         &income_items,
         &expense_categories,
         &expense_items,
     );
-
-    // Response is irrelevant here
-    match response {
-        _ => return,
-    }
 }
 
 /// Print out the half of the budget and find out what the user wants to do
 /// It only receives the relevant half categories and items
-fn print_budget_half_get_response<'a, 'b, 'c>(
-    categories: &'a Vec<BudgetCategory>,
-    items: &'b Vec<BudgetItem>,
-    which_half: &'c BudgetHalf,
-) -> BudgetSelection<'b> {
+fn print_budget_half_get_response<'a>(
+    categories: &Vec<BudgetCategory>,
+    items: &'a Vec<BudgetItem>,
+    which_half: &BudgetHalf,
+) -> BudgetSelection<'a> {
     println!("\nCurrent list of {}:", which_half.to_str().to_lowercase());
     let mut idx: usize = 1;
     let mut sorted_items: Vec<&BudgetItem> = vec![];
@@ -85,11 +82,18 @@ fn print_budget_half_get_response<'a, 'b, 'c>(
         for item in items {
             if item.category_lower == category.category_lower {
                 print!("    {}. {} ", idx, item.item);
-                let num_dashes: usize = MAX_CHARACTERS_ITEM_NAME + 1 - item.item.len();
+                let mut num_dashes: usize = MAX_CHARACTERS_ITEM_NAME + 1 - item.item.len();
+                // Support prooper formatting up to 999 items
+                if idx >= 10 {
+                    num_dashes -= 1;
+                }
+                if idx >= 100 {
+                    num_dashes -= 1;
+                }
                 for _ in 0..num_dashes {
                     print!("-");
                 }
-                println!(" {}", item.value);
+                println!(" {}", to_money_string(item.value));
                 idx += 1;
                 sorted_items.push(item);
             }
@@ -97,7 +101,7 @@ fn print_budget_half_get_response<'a, 'b, 'c>(
     }
     println!("\n{}. NEW CATEGORY", idx);
     idx += 1;
-    println!("  {}. NEW ITEM", idx);
+    println!("    {}. NEW ITEM", idx);
     idx += 1;
     println!("{}. RENAME CATEGORY", idx);
     println!("\n 0. GO BACK - Budget Menu");
@@ -121,8 +125,9 @@ fn print_budget_get_response(
     expense_categories: &Vec<BudgetCategory>,
     expense_items: &Vec<BudgetItem>,
 ) -> String {
+    let today_date = Local::now().format("%Y-%m-%d").to_string();
+    println!("\n\nCurrent Monthly Budget - {}", today_date);
     println!("\nINCOME");
-    let mut idx: usize = 1;
     let mut income_total: f64 = 0.0;
     for category in income_categories {
         // Check if any of the items are in this category
@@ -138,22 +143,27 @@ fn print_budget_get_response(
         println!("{}", category.category);
         for item in income_items {
             if item.category_lower == category.category_lower {
-                print!("    {}. {} ", idx, item.item);
-                let num_dashes: usize = MAX_CHARACTERS_ITEM_NAME + 1 - item.item.len();
+                print!("    {} ", item.item);
+                let num_dashes: usize = MAX_CHARACTERS_ITEM_NAME + 4 - item.item.len();
                 for _ in 0..num_dashes {
                     print!("-");
                 }
-                println!(" {}", item.value);
-                idx += 1;
+                println!(" {}", to_money_string(item.value));
                 income_total += item.value;
             }
         }
     }
-    println!("____________________________________________");
-    println!("Total Income                    {}", income_total);
+    // Print sum
+    for _ in 0..(MAX_CHARACTERS_ITEM_NAME + 24) {
+        print!("_");
+    }
+    print!("\nTotal Income");
+    for _ in 0..(MAX_CHARACTERS_ITEM_NAME - 2) {
+        print!(" ");
+    }
+    println!("{}", to_money_string(income_total));
 
     println!("\nEXPENSES");
-    let mut idx: usize = 1;
     let mut expense_total: f64 = 0.0;
     for category in expense_categories {
         // Check if any of the items are in this category
@@ -169,27 +179,35 @@ fn print_budget_get_response(
         println!("{}", category.category);
         for item in expense_items {
             if item.category_lower == category.category_lower {
-                print!("    {}. {} ", idx, item.item);
-                let num_dashes: usize = MAX_CHARACTERS_ITEM_NAME + 1 - item.item.len();
+                print!("    {} ", item.item);
+                let num_dashes: usize = MAX_CHARACTERS_ITEM_NAME + 4 - item.item.len();
                 for _ in 0..num_dashes {
                     print!("-");
                 }
-                println!(" {}", item.value);
-                idx += 1;
+                println!(" {}", to_money_string(item.value));
                 expense_total += item.value;
             }
         }
     }
-    println!("____________________________________________");
-    println!("Total Expenses                  {}", expense_total);
+    // Print sum
+    for _ in 0..(MAX_CHARACTERS_ITEM_NAME + 24) {
+        print!("_");
+    }
+    print!("\nTotal Expenses");
+    for _ in 0..(MAX_CHARACTERS_ITEM_NAME - 4) {
+        print!(" ");
+    }
+    println!("{}", to_money_string(expense_total));
 
+    // Grand total
+    let total = income_total - expense_total;
     println!(
-        "\n\nTOTAL MONTHLY NET ------------- {}\n\n",
-        income_total - expense_total
+        "\n\nTOTAL MONTHLY NET ------------------  {}",
+        to_money_string(total)
     );
 
     // Return
-    println!("\nPress enter to return.");
+    println!("\n\nPress enter to return.");
     read_or_quit()
 }
 
@@ -203,6 +221,16 @@ fn create_new_category(
 ) {
     println!("What would you like to call the new category?");
     let cat_name = read_or_quit();
+
+    // Return if the new name is empty
+    if cat_name.is_empty() {
+        println!("The category name cannot be empty. Please try again.");
+        println!("Hit Enter to go back.");
+        // Give the user a chance to acknowledge
+        read_or_quit();
+        return;
+    }
+
     // Check if the category already exists
     for category in &mut *categories {
         if cat_name.to_lowercase() == category.category_lower {
@@ -222,7 +250,7 @@ fn create_new_category(
     // Add the category into the categories vector
     categories.push(BudgetCategory {
         category: cat_name.clone(),
-        category_lower: String::from(cat_name.to_lowercase()),
+        category_lower: cat_name.to_lowercase(),
         username_lower: String::from(&user.username_lower),
         is_income: which_half.to_bool(),
     });
@@ -254,6 +282,15 @@ fn create_new_item(
             "There is currently a {} character limit on the item name. Please try again.",
             MAX_CHARACTERS_ITEM_NAME
         );
+        return;
+    }
+
+    // Return if the new name is empty
+    if item_name.is_empty() {
+        println!("The item name cannot be empty. Please try again.");
+        println!("Hit Enter to go back.");
+        // Give the user a chance to acknowledge
+        read_or_quit();
         return;
     }
 
@@ -357,10 +394,10 @@ fn create_new_item(
     // Add the item into the items vector
     items.push(BudgetItem {
         item: item_name.clone(),
-        item_lower: String::from(item_name.to_lowercase()),
-        value: value,
+        item_lower: item_name.to_lowercase(),
+        value,
         category: chosen_cat.clone(),
-        category_lower: String::from(chosen_cat.to_lowercase()),
+        category_lower: chosen_cat.to_lowercase(),
         username_lower: String::from(&user.username_lower),
         is_income: which_half.to_bool(),
         timeline_created: timeline,
@@ -392,7 +429,7 @@ fn rename_category(
         println!("Enter the number of the category you'd like to rename.");
     });
     match response {
-        0 => return,
+        0 => (), // return
         x if x > 0 && x <= idx => {
             println!(
                 "What would you like to rename {}?",
@@ -403,6 +440,16 @@ fn rename_category(
                     .clone()
             );
             let new_name = read_or_quit();
+
+            // Return if the new name is empty
+            if new_name.is_empty() {
+                println!("The category name cannot be empty. Please try again.");
+                println!("Hit Enter to go back.");
+                // Give the user a chance to acknowledge
+                read_or_quit();
+                return;
+            }
+
             // Check if it exists already, and return if it does
             for category in &mut *categories {
                 if new_name.to_ascii_lowercase() == category.category_lower {
@@ -456,7 +503,7 @@ fn update_item(
         0 => {
             // Must push the item back into the vector
             items.push(item_chosen);
-            return;
+            // return
         }
         2 => {
             println!("Are you sure you'd like to delete this item? This cannot be undone.");
@@ -479,12 +526,12 @@ fn update_item(
                     )
                     .expect("Error deleting the item");
                     // The item is already removed from the vector and will go out of scope here
-                    return;
+                    // return
                 }
                 2 => {
                     // Must push the item back into the vector
                     items.push(item_chosen);
-                    return;
+                    // return
                 }
                 x => panic!("Response {} is an error state. Exiting the program.", x),
             }
@@ -506,7 +553,7 @@ fn update_item(
                     return;
                 }
             }
-            if item_name.len() == 0 {
+            if item_name.is_empty() {
                 // They would like to not change the item name
                 item_name = String::from(&item_chosen.item);
             }
@@ -516,19 +563,19 @@ fn update_item(
                 // is_income
                 println!(
                     "The current monthly income associated with {} is listed as {}. Enter a new value to change it.",
-                    item_name, item_chosen.value
+                    item_name, to_money_string(item_chosen.value)
                 );
             } else {
                 println!(
                     "The current monthly cost associated with {} is listed as {}. Enter a new cost to change it (positive number or 0).",
-                    item_name, item_chosen.value
+                    item_name, to_money_string(item_chosen.value)
                 );
             }
             println!("Or just leave it blank and hit Enter to keep the value the same.");
             let mut value: f64 = -1.0;
             while value < 0.0 {
                 let val_response = read_or_quit();
-                if val_response.len() == 0 {
+                if val_response.is_empty() {
                     // The user would like to not change the value
                     value = item_chosen.value;
                     break;
@@ -648,10 +695,10 @@ fn update_item(
             // Add the updated item into the items vector (since the old one was already removed)
             items.push(BudgetItem {
                 item: item_name.clone(),
-                item_lower: String::from(item_name.to_lowercase()),
-                value: value,
+                item_lower: item_name.to_lowercase(),
+                value,
                 category: chosen_cat.clone(),
-                category_lower: String::from(chosen_cat.to_lowercase()),
+                category_lower: chosen_cat.to_lowercase(),
                 username_lower: String::from(&user.username_lower),
                 is_income: which_half.to_bool(),
                 timeline_created: timeline,

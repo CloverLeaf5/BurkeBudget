@@ -40,6 +40,6 @@ fn main() -> Result<()> {
     }
 
     // Close the application by returning a Result
-    println!("Your budget is saved, and you have been logged out. See you next time!");
+    println!("Your budget is saved, and you have been logged out. See you next time!\n");
     Ok(())
 }

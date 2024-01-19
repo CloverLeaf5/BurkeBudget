@@ -1,3 +1,5 @@
+use rusty_money::{iso, Money};
+
 /// The User struct for the application
 #[derive(Debug, Clone)]
 pub struct User {
@@ -68,7 +70,7 @@ pub struct BudgetItem {
     pub timeline_deleted: usize,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Snapshot {
     pub timeline: usize,
     pub username_lower: String,
@@ -80,6 +82,9 @@ pub struct Snapshot {
 
 /// The maximum length is related to the formatting used
 pub const MAX_CHARACTERS_ITEM_NAME: usize = 28;
+
+/// 1 quadrillion is the maximum value related to plot formatting
+pub const MAX_ITEM_VALUE: f64 = 1_000_000_000_000_000.0;
 
 /// Assets or Liabilities
 #[derive(PartialEq)]
@@ -139,7 +144,6 @@ impl BudgetHalf {
 }
 
 /// Utilizes the read!() macro but exits the program if the user has input "quit"
-// TODO: Sanitize input to only allow periods and characters (avoid SQL injection)
 pub fn read_or_quit() -> String {
     let mut input = String::new();
     std::io::stdin()
@@ -149,7 +153,7 @@ pub fn read_or_quit() -> String {
     let words: Vec<&str> = input.split(' ').collect();
     for word in words {
         if word.eq_ignore_ascii_case("quit") {
-            println!("\nYour budget is saved, and you have been logged out. See you next time!");
+            println!("\nYour budget is saved, and you have been logged out. See you next time!\n");
             std::process::exit(0);
         }
     }
@@ -179,4 +183,9 @@ pub fn print_instr_get_response<F: Fn()>(minval: usize, maxval: usize, instructi
         }
     }
     selection
+}
+
+pub fn to_money_string(input: f64) -> String {
+    let money = Money::from_str(input.to_string().as_str(), iso::USD).unwrap();
+    money.to_string()
 }

@@ -1,36 +1,34 @@
 use crate::structs_utils::*;
 use chrono::prelude::*;
 use rusqlite::{Connection, Result};
-use rusty_money::{iso, Money};
 
 /// Store a snapshot in the database (not that it mainly stores a timestamp and sparse details)
 /// The Balance Sheet can be reconstructed by accessing the database with this information
 pub fn create_snapshot(conn: &Connection, user: &User, net_worth: f64) -> Result<()> {
     // Get current timestamp without updating it
     // This should be the last used timestamp on the timeline
-    let timestamp: usize;
     let mut stmt =
         conn.prepare("SELECT timestamp FROM balance_timeline WHERE username_lower = ?1")?;
     let mut rows = stmt.query(rusqlite::params![user.username_lower])?;
-    timestamp = rows
+    let timestamp: usize = rows
         .next()?
         .expect("Timeline query returned empty")
         .get(0)?;
 
     // Check if a snapshot has already been made for this timestamp
     let mut stmt = conn.prepare(
-        "SELECT timestamp FROM balance_snapshots WHERE timestamp = ?1 AND username_lower = ?2",
+        "SELECT timestamp FROM balance_snapshots 
+        WHERE timestamp = ?1 AND username_lower = ?2 AND is_deleted = 0",
     )?;
     let mut rows = stmt.query(rusqlite::params![timestamp, user.username_lower])?;
     let row = rows.next()?;
-    match row {
-        // Already created
-        Some(_same_timestamp) => {
-            println!("A snapshot has already been created for the current balance sheet state.");
-            return Ok(());
-        }
-        // New timestamp
-        None => {} // Code below
+
+    // Already created
+    if let Some(_same_timestamp) = row {
+        println!("\nA snapshot has already been created for the current balance sheet state.");
+        println!("\nPress Enter to go back.");
+        read_or_quit(); // Give the user a chance to acknowledge
+        return Ok(());
     }
 
     let date_today = Local::now().format("%Y-%m-%d").to_string(); // YYYY-MM-DD
@@ -51,6 +49,9 @@ pub fn create_snapshot(conn: &Connection, user: &User, net_worth: f64) -> Result
             comment,
         ),
     )?;
+
+    println!("\nSnapshot successfully created. Press Enter to continue.");
+    read_or_quit(); // Give the user a chance to acknowledge
 
     Ok(())
 }
@@ -86,7 +87,7 @@ pub fn view_snapshot_menu(conn: &Connection, user: &User) -> Result<()> {
                 "{}.  {}:  Net Worth  {}",
                 idx,
                 snapshot.date_today,
-                Money::from_str(snapshot.net_worth.to_string().as_str(), iso::USD).unwrap()
+                to_money_string(snapshot.net_worth)
             );
         }
         println!("\n0. GO BACK");
@@ -99,7 +100,8 @@ pub fn view_snapshot_menu(conn: &Connection, user: &User) -> Result<()> {
                 return Ok(());
             }
             x if x > 0 && x <= idx => {
-                view_single_snapshot(conn, user, &mut snapshots, x - 1);
+                view_single_snapshot(conn, user, &mut snapshots, x - 1)
+                    .expect("Error with the snapshot viewer: Exiting the program");
             }
             x => panic!("Response {} is an error state. Exiting the program.", x),
         }
@@ -112,7 +114,7 @@ fn view_single_snapshot(
     user: &User,
     snapshots: &mut Vec<Snapshot>,
     snapshot_idx: usize,
-) {
+) -> Result<()> {
     let relevant_snapshot = snapshots
         .get(snapshot_idx)
         .expect("Error accessing requested snapshot");
@@ -157,10 +159,7 @@ fn view_single_snapshot(
                 for _ in 0..num_dashes {
                     print!("-");
                 }
-                println!(
-                    " {}",
-                    Money::from_str(item.value.to_string().as_str(), iso::USD).unwrap()
-                );
+                println!(" {}", to_money_string(item.value));
                 idx += 1;
                 asset_total += item.value;
             }
@@ -174,10 +173,7 @@ fn view_single_snapshot(
     for _ in 0..(MAX_CHARACTERS_ITEM_NAME - 2) {
         print!(" ");
     }
-    println!(
-        "{}",
-        Money::from_str(asset_total.to_string().as_str(), iso::USD).unwrap()
-    );
+    println!("{}", to_money_string(asset_total));
 
     println!("\nLIABILITIES");
     let mut idx: usize = 1;
@@ -201,10 +197,7 @@ fn view_single_snapshot(
                 for _ in 0..num_dashes {
                     print!("-");
                 }
-                println!(
-                    " {}",
-                    Money::from_str(item.value.to_string().as_str(), iso::USD).unwrap()
-                );
+                println!(" {}", to_money_string(item.value));
                 idx += 1;
                 liability_total += item.value;
             }
@@ -218,20 +211,17 @@ fn view_single_snapshot(
     for _ in 0..(MAX_CHARACTERS_ITEM_NAME - 7) {
         print!(" ");
     }
-    println!(
-        "{}",
-        Money::from_str(liability_total.to_string().as_str(), iso::USD).unwrap()
-    );
+    println!("{}", to_money_string(liability_total));
 
     // Grand total
     let total = asset_total - liability_total;
     println!(
         "\n\nTOTAL NET WORTH -------------------  {}",
-        Money::from_str(total.to_string().as_str(), iso::USD).unwrap()
+        to_money_string(total)
     );
 
     // Print out the comment under the snapshot
-    if relevant_snapshot.comment.len() > 0 {
+    if !relevant_snapshot.comment.is_empty() {
         println!("\nComment: \"{}\"", relevant_snapshot.comment);
     }
 
@@ -241,33 +231,56 @@ fn view_single_snapshot(
     println!("2. Delete this Snapshot");
     let response = print_instr_get_response(1, 2, || {});
     match response {
-        1 => {
-            return;
-        }
+        1 => Ok(()),
         2 => {
-            println!("Are you sure you'd like to delete this Snapshot? This cannot be undone.");
+            // The deletion branch
+            println!("\nAre you sure you'd like to delete this Snapshot? This cannot be undone.");
             println!("1. Yes");
             println!("2. No (Go back)");
             match print_instr_get_response(1, 2, || {}) {
                 1 => {
-                    // Delete the item from the database and from the mutable vector
+                    // Can have multiple deleted snapshots at the same timeline value
+                    // Must find the last deleted one and increment the deletion integer for this one
+                    let mut stmt = conn.prepare(
+                        "SELECT is_deleted FROM balance_snapshots 
+                        WHERE username_lower = ?1 AND timestamp = ?2 AND is_deleted > 0",
+                    )?;
+                    let mut rows = stmt.query(rusqlite::params![
+                        user.username_lower,
+                        relevant_snapshot.timeline
+                    ])?;
+                    let mut prev_deleted: Vec<usize> = vec![];
+                    while let Some(row) = rows.next()? {
+                        prev_deleted.push(row.get(0)?)
+                    }
+
+                    prev_deleted.sort(); // Low to high
+                    let mut deletion_number: usize = 1;
+                    if let Some(last_deleted_timeline) = prev_deleted.last() {
+                        if last_deleted_timeline >= &deletion_number {
+                            deletion_number = *last_deleted_timeline + 1;
+                        }
+                    }
+                    // Delete the snapshot from the database and from the mutable vector
+                    // Set the is_deleted value to be the number calculated above
                     conn.execute(
                         "UPDATE balance_snapshots 
-                        SET is_deleted = 1
-                        WHERE timestamp = ?1 AND username_lower = ?2",
-                        (relevant_snapshot.timeline, &user.username_lower),
+                        SET is_deleted = ?1
+                        WHERE timestamp = ?2 AND username_lower = ?3  AND is_deleted = 0",
+                        (
+                            deletion_number,
+                            relevant_snapshot.timeline,
+                            &user.username_lower,
+                        ),
                     )
                     .expect("Error deleting the item");
                     // All of the items and categories should remain unchanged
                     // Remove the snapshot from the Vector of Snapshots
                     // The remove function should maintain the sorted order of the snapshots
                     snapshots.remove(snapshot_idx);
-                    return;
+                    Ok(())
                 }
-                2 => {
-                    // Must push the item back into the vector
-                    return;
-                }
+                2 => Ok(()),
                 x => panic!("Response {} is an error state. Exiting the program.", x),
             }
         }

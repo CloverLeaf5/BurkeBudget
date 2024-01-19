@@ -1,9 +1,9 @@
 use crate::structs_utils::*;
+use chrono::Duration;
 use rusqlite::{Connection, Result};
-use rusty_money::{iso, Money};
-#[path = "textplots.rs"]
-mod textplots;
-use textplots::*;
+#[path = "texplots.rs"]
+mod texplots;
+use texplots::*;
 
 /// Select which type of visualization user would like
 pub fn snapshot_visualizer_menu(conn: &Connection, user: &User) {
@@ -41,7 +41,7 @@ fn side_by_side_snapshots(conn: &Connection, user: &User) -> Result<()> {
         })
     }
 
-    if snapshots.len() == 0 {
+    if snapshots.is_empty() {
         println!("\n\nYou don't have any saved snapshots yet. Hit Enter to go back.");
         read_or_quit(); // Just to give the user a chance to acknowledge
         return Ok(());
@@ -61,7 +61,7 @@ fn side_by_side_snapshots(conn: &Connection, user: &User) -> Result<()> {
             "{}.  {}:  Net Worth  {}",
             idx,
             snapshot.date_today,
-            Money::from_str(snapshot.net_worth.to_string().as_str(), iso::USD,).unwrap()
+            to_money_string(snapshot.net_worth)
         );
     }
 
@@ -105,8 +105,13 @@ fn print_side_by_side(
     liability_items.sort_unstable_by_key(|a| (a.timeline_original, a.timeline_created));
 
     // Running total of printed values matching snapshot by index
-    let mut asset_totals: Vec<f64> = vec![0.0, 0.0, 0.0, 0.0, 0.0];
-    let mut liability_totals: Vec<f64> = vec![0.0, 0.0, 0.0, 0.0, 0.0];
+    let mut asset_totals: Vec<f64> = vec![];
+    let mut liability_totals: Vec<f64> = vec![];
+    // Initialize for 0.0 for each snapshot
+    for _ in 0..snapshots.len() {
+        asset_totals.push(0.0);
+        liability_totals.push(0.0);
+    }
 
     // Print the dates of the snapshots
     print!("\n\n{}", " ".repeat(MAX_CHARACTERS_ITEM_NAME + 2));
@@ -117,7 +122,7 @@ fn print_side_by_side(
             " ".repeat(COL_WIDTH - 10 + 2)
         );
     }
-    print!("\n");
+    println!();
 
     // This code is terrible, repeats itself, and is not readable
     // This could be improved by breaking logic into functions
@@ -182,20 +187,14 @@ fn print_side_by_side(
             if item.timeline_created <= current_timeline && item.timeline_deleted > current_timeline
             {
                 // Correct value, print it here and add to running total
-                print!(
-                    "{}",
-                    Money::from_str(item.value.to_string().as_str(), iso::USD).unwrap()
-                );
+                print!("{}", to_money_string(item.value));
                 asset_totals[col] += item.value;
                 // If this isn't the last column, print more dashes, otherwise new line
-                let money_len = Money::from_str(item.value.to_string().as_str(), iso::USD)
-                    .unwrap()
-                    .to_string()
-                    .len();
+                let money_len = to_money_string(item.value).len();
                 if col < selected_indices.len() - 1 {
                     print!(" {} ", "-".repeat(COL_WIDTH - money_len));
                 } else {
-                    print!("\n");
+                    println!();
                 }
             } else if item.timeline_created > current_timeline {
                 // This item was created after this timeline point
@@ -220,22 +219,14 @@ fn print_side_by_side(
                                 && item.timeline_deleted > current_timeline
                             {
                                 // Can print its value here
-                                print!(
-                                    "{}",
-                                    Money::from_str(item.value.to_string().as_str(), iso::USD)
-                                        .unwrap()
-                                );
+                                print!("{}", to_money_string(item.value));
                                 asset_totals[col] += item.value;
                                 // If this isn't the last column, print more dashes, otherwise new line
-                                let money_len =
-                                    Money::from_str(item.value.to_string().as_str(), iso::USD)
-                                        .unwrap()
-                                        .to_string()
-                                        .len();
+                                let money_len = to_money_string(item.value).len();
                                 if col < selected_indices.len() - 1 {
                                     print!(" {} ", "-".repeat(COL_WIDTH - money_len));
                                 } else {
-                                    print!("\n");
+                                    println!();
                                 }
                             }
                         }
@@ -253,19 +244,16 @@ fn print_side_by_side(
     for _ in 0..selected_indices.len() {
         print!("{}", "_".repeat(COL_WIDTH + 2));
     }
-    print!("\n");
+    println!();
     print!(
         "TOTAL ASSETS {} ",
         " ".repeat(MAX_CHARACTERS_ITEM_NAME - 12)
     );
-    for i in 0..selected_indices.len() {
-        let money_len = Money::from_str(asset_totals[i].to_string().as_str(), iso::USD)
-            .unwrap()
-            .to_string()
-            .len();
+    for asset_total in &asset_totals {
+        let money_len = to_money_string(*asset_total).len();
         print!(
             "{}{}",
-            Money::from_str(asset_totals[i].to_string().as_str(), iso::USD).unwrap(),
+            to_money_string(*asset_total),
             " ".repeat(COL_WIDTH - money_len + 2)
         );
     }
@@ -330,20 +318,14 @@ fn print_side_by_side(
             if item.timeline_created <= current_timeline && item.timeline_deleted > current_timeline
             {
                 // Correct value, print it here and add to running total
-                print!(
-                    "{}",
-                    Money::from_str(item.value.to_string().as_str(), iso::USD).unwrap()
-                );
+                print!("{}", to_money_string(item.value));
                 liability_totals[col] += item.value;
                 // If this isn't the last column, print more dashes, otherwise new line
-                let money_len = Money::from_str(item.value.to_string().as_str(), iso::USD)
-                    .unwrap()
-                    .to_string()
-                    .len();
+                let money_len = to_money_string(item.value).len();
                 if col < selected_indices.len() - 1 {
                     print!(" {} ", "-".repeat(COL_WIDTH - money_len));
                 } else {
-                    print!("\n");
+                    println!();
                 }
             } else if item.timeline_created > current_timeline {
                 // This item was created after this timeline point
@@ -368,22 +350,14 @@ fn print_side_by_side(
                                 && item.timeline_deleted > current_timeline
                             {
                                 // Can print its value here
-                                print!(
-                                    "{}",
-                                    Money::from_str(item.value.to_string().as_str(), iso::USD)
-                                        .unwrap()
-                                );
+                                print!("{}", to_money_string(item.value));
                                 liability_totals[col] += item.value;
                                 // If this isn't the last column, print more dashes, otherwise new line
-                                let money_len =
-                                    Money::from_str(item.value.to_string().as_str(), iso::USD)
-                                        .unwrap()
-                                        .to_string()
-                                        .len();
+                                let money_len = to_money_string(item.value).len();
                                 if col < selected_indices.len() - 1 {
                                     print!(" {} ", "-".repeat(COL_WIDTH - money_len));
                                 } else {
-                                    print!("\n");
+                                    println!();
                                 }
                             }
                         }
@@ -401,19 +375,16 @@ fn print_side_by_side(
     for _ in 0..selected_indices.len() {
         print!("{}", "_".repeat(COL_WIDTH + 2));
     }
-    print!("\n");
+    println!();
     print!(
         "TOTAL LIABILITIES {} ",
         " ".repeat(MAX_CHARACTERS_ITEM_NAME - 17)
     );
-    for i in 0..selected_indices.len() {
-        let money_len = Money::from_str(liability_totals[i].to_string().as_str(), iso::USD)
-            .unwrap()
-            .to_string()
-            .len();
+    for liability_total in &liability_totals {
+        let money_len = to_money_string(*liability_total).len();
         print!(
             "{}{}",
-            Money::from_str(liability_totals[i].to_string().as_str(), iso::USD).unwrap(),
+            to_money_string(*liability_total),
             " ".repeat(COL_WIDTH - money_len + 2)
         );
     }
@@ -424,20 +395,17 @@ fn print_side_by_side(
     for _ in 0..selected_indices.len() {
         print!("{}", "_".repeat(COL_WIDTH + 2));
     }
-    print!("\n");
+    println!();
     print!(
         "TOTAL NET WORTH {} ",
         " ".repeat(MAX_CHARACTERS_ITEM_NAME - 15)
     );
     for i in 0..selected_indices.len() {
         let grand_total = asset_totals[i] - liability_totals[i];
-        let money_len = Money::from_str(grand_total.to_string().as_str(), iso::USD)
-            .unwrap()
-            .to_string()
-            .len();
+        let money_len = to_money_string(grand_total).len();
         print!(
             "{}{}",
-            Money::from_str(grand_total.to_string().as_str(), iso::USD).unwrap(),
+            to_money_string(grand_total),
             " ".repeat(COL_WIDTH - money_len + 2)
         );
     }
@@ -452,7 +420,7 @@ fn parse_space_delim_response_for_int_to_index(
     minval: usize,
     maxval: usize,
 ) -> Option<Vec<usize>> {
-    let vals_str: Vec<&str> = response.split(" ").collect();
+    let vals_str: Vec<&str> = response.split(' ').collect();
     let mut vals: Vec<usize> = vec![];
     for val in vals_str {
         match val.parse::<usize>() {
@@ -472,7 +440,7 @@ fn parse_space_delim_response_for_int_to_index(
                 }
             }
             Err(_) => {
-                if val != "" {
+                if !val.is_empty() {
                     println!(
                         "\n\"{}\" wasn't included as it was not a valid number.",
                         val
@@ -483,7 +451,7 @@ fn parse_space_delim_response_for_int_to_index(
             }
         }
     }
-    if vals.len() == 0 {
+    if vals.is_empty() {
         None
     } else if vals.len() > 5 {
         Some(vals[0..5].to_vec())
@@ -545,8 +513,14 @@ fn net_worth_graph(conn: &Connection, user: &User) -> Result<()> {
         })
     }
 
-    if snapshots.len() == 0 {
+    if snapshots.is_empty() {
         println!("\n\nYou don't have any saved snapshots yet. Hit Enter to go back.");
+        read_or_quit(); // Just to give the user a chance to acknowledge
+        return Ok(());
+    }
+
+    if snapshots.len() == 1 {
+        println!("\n\nYou need at least 2 snapshots for a trend line. Hit Enter to go back.");
         read_or_quit(); // Just to give the user a chance to acknowledge
         return Ok(());
     }
@@ -554,42 +528,150 @@ fn net_worth_graph(conn: &Connection, user: &User) -> Result<()> {
     // Sort the snapshots in chronological order
     snapshots.sort_by(|a, b| a.timeline.cmp(&b.timeline));
 
-    // Create a Vector of points
-    let mut points: Vec<(f32, f32)> = vec![];
-    let mut min_val: f64 = 0.0;
-    let mut max_val: f64 = 0.0;
-    for i in 0..snapshots.len() {
-        points.push((i as f32, snapshots[i].net_worth as f32));
-        if snapshots[i].net_worth < min_val {
-            min_val = snapshots[i].net_worth;
-        }
-        if snapshots[i].net_worth > max_val {
-            max_val = snapshots[i].net_worth;
+    let mut show_unscaled = true;
+
+    loop {
+        if show_unscaled {
+            // UNSCALED X-AXIS VERSION OF THE PLOT
+            // Create a Vector of points with snapshot index as x
+            let mut points: Vec<(f32, f32)> = vec![];
+            let mut min_val: f64 = f64::MAX;
+            let mut max_val: f64 = f64::MIN;
+            for (idx, snapshot) in snapshots.iter().enumerate() {
+                // Will later index back to snapshots vector to get date
+                points.push((idx as f32, snapshot.net_worth as f32));
+                if snapshot.net_worth < min_val {
+                    min_val = snapshot.net_worth;
+                }
+                if snapshot.net_worth > max_val {
+                    max_val = snapshot.net_worth;
+                }
+            }
+            let lines = Shape::Lines(points.as_slice());
+            let mut plot = Chart::new_with_y_range(
+                250,
+                80,
+                0.0,
+                (snapshots.len() - 1) as f32,
+                (min_val - (0.2 * min_val.abs())) as f32,
+                (max_val + (0.2 * min_val.abs())) as f32,
+            );
+
+            println!("\n\n\nYour Net Worth Trend");
+
+            let closure_snapshots = snapshots.clone();
+
+            plot.lineplot(&lines)
+                .x_label_format(LabelFormat::Custom(Box::new(move |xval| {
+                    closure_snapshots[xval as usize].date_today.clone()
+                })))
+                .y_label_format(LabelFormat::Custom(Box::new(move |yval| {
+                    to_money_string(yval as f64)
+                })))
+                .y_tick_display(TickDisplay::Sparse)
+                .nice();
+
+            println!("\n\nNote: X-Axis not to scale\n");
+            println!("What would you like to do next?");
+            println!("1. View the trend with the x-axis to scale");
+            println!("0. GO BACK");
+
+            match print_instr_get_response(0, 1, || {}) {
+                0 => break,
+                1 => show_unscaled = false,
+                x => panic!("Response {} is an error state. Exiting the program.", x),
+            }
+        } else {
+            // SCALED X-AXIS VERSION OF THE PLOT
+            // Guaranteed to have at least 2 snapshots
+            // let first_date_str: Vec<&str> =
+            //     snapshots.first().unwrap().date_today.split('-').collect();
+            // let first_date = chrono::NaiveDate::from_ymd_opt(
+            //     first_date_str[0].parse::<i32>().unwrap(),
+            //     first_date_str[1].parse::<u32>().unwrap(),
+            //     first_date_str[2].parse::<u32>().unwrap(),
+            // )
+            // .unwrap();
+            let first_date = chrono::NaiveDate::parse_from_str(
+                snapshots.first().unwrap().date_today.as_str(),
+                "%Y-%m-%d",
+            )
+            .unwrap();
+            // let last_date_str: Vec<&str> =
+            //     snapshots.last().unwrap().date_today.split('-').collect();
+            // let last_date = chrono::NaiveDate::from_ymd_opt(
+            //     last_date_str[0].parse::<i32>().unwrap(),
+            //     last_date_str[1].parse::<u32>().unwrap(),
+            //     last_date_str[2].parse::<u32>().unwrap(),
+            // )
+            // .unwrap();
+            let last_date = chrono::NaiveDate::parse_from_str(
+                snapshots.last().unwrap().date_today.as_str(),
+                "%Y-%m-%d",
+            )
+            .unwrap();
+
+            // Make a new vector of points with duration in days from the first date for x
+            // Min and max y values don't change from above
+            let mut points: Vec<(f32, f32)> = vec![];
+            let mut min_val: f64 = f64::MAX;
+            let mut max_val: f64 = f64::MIN;
+            for snapshot in &snapshots {
+                // let date_str: Vec<&str> = snapshot.date_today.split('-').collect();
+                // let snap_date = chrono::NaiveDate::from_ymd_opt(
+                //     date_str[0].parse::<i32>().unwrap(),
+                //     date_str[1].parse::<u32>().unwrap(),
+                //     date_str[2].parse::<u32>().unwrap(),
+                // )
+                // .unwrap();
+                let snap_date =
+                    chrono::NaiveDate::parse_from_str(snapshot.date_today.as_str(), "%Y-%m-%d")
+                        .unwrap();
+                points.push((
+                    (snap_date - first_date).num_days() as f32,
+                    snapshot.net_worth as f32,
+                ));
+                if snapshot.net_worth < min_val {
+                    min_val = snapshot.net_worth;
+                }
+                if snapshot.net_worth > max_val {
+                    max_val = snapshot.net_worth;
+                }
+            }
+            let lines = Shape::Lines(points.as_slice());
+            let mut plot = Chart::new_with_y_range(
+                250,
+                80,
+                0.0,
+                (last_date - first_date).num_days() as f32,
+                (min_val - (0.2 * min_val.abs())) as f32,
+                (max_val + (0.2 * min_val.abs())) as f32,
+            );
+
+            println!("\n\n\nYour Net Worth Trend");
+
+            plot.lineplot(&lines)
+                .x_label_format(LabelFormat::Custom(Box::new(move |xval| {
+                    format!("{}", first_date + Duration::days(xval as i64))
+                })))
+                .y_label_format(LabelFormat::Custom(Box::new(move |yval| {
+                    to_money_string(yval as f64)
+                })))
+                .y_tick_display(TickDisplay::Sparse)
+                .nice();
+
+            println!("\n\nNote: X-Axis is now to scale\n");
+            println!("What would you like to do next?");
+            println!("1. View the trend with the x-axis unscaled");
+            println!("0. GO BACK");
+
+            match print_instr_get_response(0, 1, || {}) {
+                0 => break,
+                1 => show_unscaled = true,
+                x => panic!("Response {} is an error state. Exiting the program.", x),
+            }
         }
     }
-
-    let lines = Shape::Lines(points.as_slice());
-    let mut plot = Chart::new_with_y_range(
-        250,
-        75,
-        0.0 as f32,
-        (snapshots.len() - 1) as f32,
-        (min_val * 1.2) as f32,
-        (max_val * 1.2) as f32,
-    );
-
-    println!("\n\n\nYour Net Worth Trend\n");
-
-    plot.lineplot(&lines)
-        .x_label_format(LabelFormat::Custom(Box::new(move |xval| {
-            String::from(&snapshots[xval as usize].date_today)
-        })))
-        .y_label_format(LabelFormat::Custom(Box::new(move |yval| {
-            Money::from_str(yval.to_string().as_str(), iso::USD)
-                .unwrap()
-                .to_string()
-        })))
-        .nice();
 
     Ok(())
 }
