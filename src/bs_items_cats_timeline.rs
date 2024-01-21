@@ -337,7 +337,7 @@ pub fn update_item(
             // Create new one with proper timestamp
             // First get the new item name
             println!(
-                "If you would like to change the item's name from {}, what would you like to change it to?", item_chosen.item
+                "\nIf you would like to change the item's name from {}, what would you like to change it to?", item_chosen.item
             );
             println!("Or just leave this blank to keep it the same. (Just hit Enter)");
             let mut item_name = read_or_quit();

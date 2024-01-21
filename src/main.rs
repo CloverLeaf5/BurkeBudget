@@ -1,11 +1,11 @@
-use rusqlite::{Connection, Result};
+use rusqlite::Connection;
 
 mod login;
 mod menu;
 mod structs_utils;
 
 fn write_welcome() {
-    println!("||PBPB\\\\");
+    println!("\n||PBPB\\\\");
     println!("||     ||");
     println!("||    //");
     println!("||LKLK");
@@ -18,12 +18,13 @@ fn write_welcome() {
     println!("\nType \"quit\" to quit at any time. This will also logout the current user\n");
 }
 
-fn main() -> Result<()> {
+fn main() {
     const DB_PATH: &str = "budgetDb.db";
 
     write_welcome();
 
-    let conn = Connection::open(DB_PATH)?;
+    let conn = Connection::open(DB_PATH).expect("There was an error connecting to the database");
+
     // Turn on foreign keys
     conn.execute("PRAGMA foreign_keys = ON", ())
         .expect("Error turning on foreign keys");
@@ -40,6 +41,5 @@ fn main() -> Result<()> {
     }
 
     // Close the application by returning a Result
-    println!("Your budget is saved, and you have been logged out. See you next time!\n");
-    Ok(())
+    println!("\nYour budget is saved, and you have been logged out. See you next time!\n");
 }

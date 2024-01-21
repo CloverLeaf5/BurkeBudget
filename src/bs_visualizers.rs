@@ -559,11 +559,16 @@ fn net_worth_graph(conn: &Connection, user: &User) -> Result<()> {
 
             println!("\n\n\nYour Net Worth Trend");
 
-            let closure_snapshots = snapshots.clone();
+            // Clone the dates for labeling the x-axis within the closure below which consumes the values
+            // Avoids cloning the entire snapshots vector
+            let closure_dates: Vec<String> = snapshots
+                .iter()
+                .map(|snapshot| snapshot.date_today.clone())
+                .collect();
 
             plot.lineplot(&lines)
                 .x_label_format(LabelFormat::Custom(Box::new(move |xval| {
-                    closure_snapshots[xval as usize].date_today.clone()
+                    closure_dates[xval as usize].to_owned()
                 })))
                 .y_label_format(LabelFormat::Custom(Box::new(move |yval| {
                     to_money_string(yval as f64)
