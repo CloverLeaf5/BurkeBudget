@@ -106,7 +106,7 @@ fn print_side_by_side(
     let mut asset_totals: Vec<f64> = vec![];
     let mut liability_totals: Vec<f64> = vec![];
     // Initialize for 0.0 for each snapshot
-    for _ in 0..snapshots.len() {
+    for _ in 0..selected_indices.len() {
         asset_totals.push(0.0);
         liability_totals.push(0.0);
     }
@@ -130,14 +130,14 @@ fn print_side_by_side(
     //////////// ASSETS //////////////////////////////
     println!("ASSETS");
     // Loop through the items and print a new one every time it's crossed
-    let mut prev_item_lower: &String = &String::from("");
+    let mut prev_item_origin: usize = usize::MAX;
     for (idx, item) in asset_items.iter().enumerate() {
-        if &item.item_lower == prev_item_lower {
+        if item.timeline_original == prev_item_origin {
             // This item name is already printed
             continue;
         }
         // This is a new item to be examined
-        prev_item_lower = &item.item_lower;
+        prev_item_origin = item.timeline_original;
         // Check if this item is involved in snapshots. Don't print if not
         // Must get timeline origin and the last iteration of this item's timeline deleted
         // Then see if any of the snapshot timelines fall into this range
@@ -147,7 +147,7 @@ fn print_side_by_side(
             // Check if next index exists
             if idx + idx_offset + 1 < asset_items.len() {
                 // Check if it is the same item
-                if &asset_items[idx + idx_offset + 1].item_lower == prev_item_lower {
+                if asset_items[idx + idx_offset + 1].timeline_original == prev_item_origin {
                     // Increment idx_offset
                     idx_offset += 1;
                 } else {
@@ -198,6 +198,10 @@ fn print_side_by_side(
                 // This item was created after this timeline point
                 // Print a placeholder
                 print!(" {} ", "-".repeat(COL_WIDTH));
+                // New line if this is the last column
+                if col == selected_indices.len() - 1 {
+                    println!();
+                }
             } else {
                 // This item was deleted before this timeline point
                 let mut offset: usize = 0;
@@ -207,30 +211,40 @@ fn print_side_by_side(
                     // Make sure this is a valid index
                     if idx + offset < asset_items.len() {
                         let item_to_check = &asset_items[idx + offset];
-                        if &item_to_check.item_lower != prev_item_lower {
+                        if item_to_check.timeline_original != prev_item_origin {
                             // Not the same item so just print dashes and move on
                             print!(" {} ", "-".repeat(COL_WIDTH));
+                            // New line if this is the last column
+                            if col == selected_indices.len() - 1 {
+                                println!();
+                            }
                             break;
                         } else {
                             // Same item, check again if the timeline matches. If not, just try on next one via loop
-                            if item.timeline_created <= current_timeline
-                                && item.timeline_deleted > current_timeline
+                            if item_to_check.timeline_created <= current_timeline
+                                && item_to_check.timeline_deleted > current_timeline
                             {
                                 // Can print its value here
-                                print!("{}", to_money_string(item.value));
-                                asset_totals[col] += item.value;
+                                print!("{}", to_money_string(item_to_check.value));
+                                asset_totals[col] += item_to_check.value;
                                 // If this isn't the last column, print more dashes, otherwise new line
-                                let money_len = to_money_string(item.value).len();
+                                let money_len = to_money_string(item_to_check.value).len();
                                 if col < selected_indices.len() - 1 {
                                     print!(" {} ", "-".repeat(COL_WIDTH - money_len));
                                 } else {
                                     println!();
                                 }
+                                // Break out of the loop since the correct item was found
+                                break;
                             }
                         }
                     } else {
                         // End of vector, print dashes
                         print!(" {} ", "-".repeat(COL_WIDTH));
+                        // New line if this is the last column
+                        if col == selected_indices.len() - 1 {
+                            println!();
+                        }
                         break;
                     }
                 }
@@ -261,14 +275,14 @@ fn print_side_by_side(
     //////////// LIABILITIES //////////////////////////////
     println!("LIABILITIES");
     // Loop through the items and print a new one every time it's crossed
-    let mut prev_item_lower: &String = &String::from("");
+    let mut prev_item_origin: usize = usize::MAX;
     for (idx, item) in liability_items.iter().enumerate() {
-        if &item.item_lower == prev_item_lower {
+        if item.timeline_original == prev_item_origin {
             // This item name is already printed
             continue;
         }
         // This is a new item to be examined
-        prev_item_lower = &item.item_lower;
+        prev_item_origin = item.timeline_original;
         // Check if this item is involved in snapshots. Don't print if not
         // Must get timeline origin and the last iteration of this item's timeline deleted
         // Then see if any of the snapshot timelines fall into this range
@@ -278,7 +292,7 @@ fn print_side_by_side(
             // Check if next index exists
             if idx + idx_offset + 1 < liability_items.len() {
                 // Check if it is the same item
-                if &liability_items[idx + idx_offset + 1].item_lower == prev_item_lower {
+                if liability_items[idx + idx_offset + 1].timeline_original == prev_item_origin {
                     // Increment idx_offset
                     idx_offset += 1;
                 } else {
@@ -329,6 +343,10 @@ fn print_side_by_side(
                 // This item was created after this timeline point
                 // Print a placeholder
                 print!(" {} ", "-".repeat(COL_WIDTH));
+                // New line if this is the last column
+                if col == selected_indices.len() - 1 {
+                    println!();
+                }
             } else {
                 // This item was deleted before this timeline point
                 let mut offset: usize = 0;
@@ -338,30 +356,40 @@ fn print_side_by_side(
                     // Make sure this is a valid index
                     if idx + offset < liability_items.len() {
                         let item_to_check = &liability_items[idx + offset];
-                        if &item_to_check.item_lower != prev_item_lower {
+                        if item_to_check.timeline_original != prev_item_origin {
                             // Not the same item so just print dashes and move on
                             print!(" {} ", "-".repeat(COL_WIDTH));
+                            // New line if this is the last column
+                            if col == selected_indices.len() - 1 {
+                                println!();
+                            }
                             break;
                         } else {
                             // Same item, check again if the timeline matches. If not, just try on next one via loop
-                            if item.timeline_created <= current_timeline
-                                && item.timeline_deleted > current_timeline
+                            if item_to_check.timeline_created <= current_timeline
+                                && item_to_check.timeline_deleted > current_timeline
                             {
                                 // Can print its value here
-                                print!("{}", to_money_string(item.value));
-                                liability_totals[col] += item.value;
+                                print!("{}", to_money_string(item_to_check.value));
+                                liability_totals[col] += item_to_check.value;
                                 // If this isn't the last column, print more dashes, otherwise new line
-                                let money_len = to_money_string(item.value).len();
+                                let money_len = to_money_string(item_to_check.value).len();
                                 if col < selected_indices.len() - 1 {
                                     print!(" {} ", "-".repeat(COL_WIDTH - money_len));
                                 } else {
                                     println!();
                                 }
+                                // Break out of the loop since the correct item was found
+                                break;
                             }
                         }
                     } else {
                         // End of vector, print dashes
                         print!(" {} ", "-".repeat(COL_WIDTH));
+                        // New line if this is the last column
+                        if col == selected_indices.len() - 1 {
+                            println!();
+                        }
                         break;
                     }
                 }
