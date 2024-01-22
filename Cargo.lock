@@ -68,6 +68,7 @@ dependencies = [
  "rgb",
  "rusqlite",
  "rusty-money",
+ "textplots",
 ]
 
 [[package]]
@@ -336,6 +337,16 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
+]
+
+[[package]]
+name = "textplots"
+version = "0.8.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d88f2321b668626b52a15898e839430b352f07644160c1a47bab512cc4f29cfd"
+dependencies = [
+ "drawille",
+ "rgb",
 ]
 
 [[package]]

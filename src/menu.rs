@@ -47,7 +47,7 @@ pub fn budget_menu(conn: &Connection, user: &User) {
             4 => return,
             5 => {
                 println!(
-                    "\nYour budget is saved, and you have been logged out. See you next time!"
+                    "\nYour budget is saved, and you have been logged out. See you next time!\n"
                 );
                 std::process::exit(0);
             }
@@ -82,7 +82,7 @@ pub fn balance_sheet_menu(conn: &Connection, user: &User) {
             4 => return,
             5 => {
                 println!(
-                    "\nYour budget is saved, and you have been logged out. See you next time!"
+                    "\nYour budget is saved, and you have been logged out. See you next time!\n"
                 );
                 std::process::exit(0);
             }

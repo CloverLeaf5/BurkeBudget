@@ -1,9 +1,7 @@
 use crate::structs_utils::*;
 use chrono::Duration;
 use rusqlite::{Connection, Result};
-#[path = "texplots.rs"]
-mod texplots;
-use texplots::*;
+use textplots::{Chart, LabelBuilder, LabelFormat, Plot, Shape, TickDisplay, TickDisplayBuilder};
 
 /// Select which type of visualization user would like
 pub fn snapshot_visualizer_menu(conn: &Connection, user: &User) {

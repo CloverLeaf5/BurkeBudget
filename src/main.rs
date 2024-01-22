@@ -19,7 +19,7 @@ fn write_welcome() {
 }
 
 fn main() {
-    const DB_PATH: &str = "budgetDb.db";
+    const DB_PATH: &str = "burkebudgetDB.db";
 
     write_welcome();
 
