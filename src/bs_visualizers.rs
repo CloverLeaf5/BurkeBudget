@@ -122,10 +122,10 @@ fn print_side_by_side(
     }
     println!();
 
-    // This code is terrible, repeats itself, and is not readable
+    // This code is difficult to maintain. It repeats itself, and is not readable
     // This could be improved by breaking logic into functions
-    // And by creating a new struct for items that include timeline timestamps
-    // When they are read from the database
+    //   and by creating a new struct for items that include timeline timestamps
+    //   when they are read from the database
 
     //////////// ASSETS //////////////////////////////
     println!("ASSETS");
@@ -139,10 +139,10 @@ fn print_side_by_side(
         // This is a new item to be examined
         prev_item_origin = item.timeline_original;
         // Check if this item is involved in snapshots. Don't print if not
-        // Must get timeline origin and the last iteration of this item's timeline deleted
+        // Must get timeline_origin and the last iteration of this item's timeline_deleted
         // Then see if any of the snapshot timelines fall into this range
         let mut idx_offset: usize = 0;
-        // Traverse to the last of this item iterations
+        // Traverse to the last iteration of this item
         loop {
             // Check if next index exists
             if idx + idx_offset + 1 < asset_items.len() {
@@ -284,10 +284,10 @@ fn print_side_by_side(
         // This is a new item to be examined
         prev_item_origin = item.timeline_original;
         // Check if this item is involved in snapshots. Don't print if not
-        // Must get timeline origin and the last iteration of this item's timeline deleted
+        // Must get timeline_origin and the last iteration of this item's timeline_deleted
         // Then see if any of the snapshot timelines fall into this range
         let mut idx_offset: usize = 0;
-        // Traverse to the last of this item iterations
+        // Traverse to the last iteration of this item
         loop {
             // Check if next index exists
             if idx + idx_offset + 1 < liability_items.len() {
