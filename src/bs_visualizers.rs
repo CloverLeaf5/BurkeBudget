@@ -245,10 +245,11 @@ fn helper_print_half_side_by_side(
         }
 
         // If the code gets here, then the item is used an should be printed
+        // Print the most recent version of the name by using the index and offset
         print!(
             "{} {} ",
-            item.item,
-            "-".repeat(MAX_CHARACTERS_ITEM_NAME - item.item.len())
+            items[idx + idx_offset].item,
+            "-".repeat(MAX_CHARACTERS_ITEM_NAME - items[idx + idx_offset].item.len())
         );
 
         // After printing item name, must print value for each snapshot
