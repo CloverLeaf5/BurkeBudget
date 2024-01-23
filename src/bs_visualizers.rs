@@ -102,15 +102,6 @@ fn print_side_by_side(
     asset_items.sort_unstable_by_key(|a| (a.timeline_original, a.timeline_created));
     liability_items.sort_unstable_by_key(|a| (a.timeline_original, a.timeline_created));
 
-    // // Running total of printed values matching snapshot by index
-    // let mut asset_totals: Vec<f64> = vec![];
-    // let mut liability_totals: Vec<f64> = vec![];
-    // // Initialize for 0.0 for each snapshot
-    // for _ in 0..selected_indices.len() {
-    //     asset_totals.push(0.0);
-    //     liability_totals.push(0.0);
-    // }
-
     // Print the dates of the snapshots
     print!("\n\n{}", " ".repeat(MAX_CHARACTERS_ITEM_NAME + 2));
     for selected_index in &selected_indices {
