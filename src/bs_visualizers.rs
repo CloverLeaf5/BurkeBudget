@@ -446,6 +446,7 @@ fn net_worth_graph(conn: &Connection, user: &User) -> Result<()> {
 
     let mut show_unscaled = true;
 
+    // Switch back and forth between scaled and unscaled x-axis displays
     loop {
         if show_unscaled {
             // UNSCALED X-AXIS VERSION OF THE PLOT

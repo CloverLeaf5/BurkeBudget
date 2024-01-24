@@ -204,12 +204,13 @@ pub fn create_new_item(
 }
 
 /// Rename a category
-/// Mutates the categories Vector and updates the DB
+/// Mutates the categories and items Vectors and updates the DB
 pub fn rename_category(
     conn: &Connection,
     user: &User,
     which_half: &BalanceSheetHalf,
     categories: &mut Vec<Category>,
+    items: &mut Vec<Item>,
 ) {
     println!("\nRename a category ({}):", which_half.to_str());
     let mut idx: usize = 0;
@@ -251,23 +252,51 @@ pub fn rename_category(
                 if new_name.to_ascii_lowercase() == category.category_lower {
                     println!("That name is already in use as {}.", category.category);
                     println!("You cannot rename this category to the same name.");
+                    println!("Hit Enter to go back.");
+                    // Give the user a chance to acknowledge
+                    read_or_quit();
                     return;
                 }
             }
-            // Update the Vector and DB
+
             let old_cat_name_lower = String::from(&mut *categories[x - 1].category_lower);
+
+            // Update all items that have the category with the updated name
+            // This is necessary since they have both the key lowercase category AND the non-key proper capitalization category
+            // Note that the lowercase category will cascade with the next update below
+            for item in items {
+                if item.category_lower == old_cat_name_lower {
+                    item.category = new_name.clone();
+                    item.category_lower = new_name.to_ascii_lowercase();
+                }
+            }
+
+            conn.execute(
+                "UPDATE balance_items 
+                    SET category = ?1 
+                    WHERE username_lower = ?2 AND category_lower = ?3 AND is_asset = ?4",
+                (
+                    &new_name,
+                    &user.username_lower,
+                    &old_cat_name_lower,
+                    &which_half.to_bool_int(),
+                ),
+            )
+            .expect("Error updating the balance sheet items database");
+
+            // Update the Vector and DB
             categories[x - 1].category = new_name.clone();
             categories[x - 1].category_lower = new_name.to_ascii_lowercase();
 
             conn.execute(
                 "UPDATE balance_categories 
                 SET category = ?1, category_lower = ?2 
-                WHERE username_lower = ?3 AND category = ?4 AND is_asset = ?5",
+                WHERE username_lower = ?3 AND category_lower = ?4 AND is_asset = ?5",
                 (
                     &new_name,
                     &new_name.to_ascii_lowercase(),
                     &user.username_lower,
-                    old_cat_name_lower,
+                    &old_cat_name_lower,
                     &which_half.to_bool_int(),
                 ),
             )

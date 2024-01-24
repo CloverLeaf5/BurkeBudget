@@ -96,6 +96,16 @@ fn chooseorsignup(conn: &Connection, username: String) -> Result<User> {
         })
     }
 
+    if users.is_empty() {
+        println!("\nYou are the first user to sign up!");
+        println!(
+            "Hit enter to sign up {} as a new user (or type \"quit\" to exit).",
+            username
+        );
+        read_or_quit(); // Give the user a chance to acknowlege
+        return signup(conn, username);
+    }
+
     // Allow choice of users from that list
     let selection = print_instr_get_response(0, users.len(), || {
         // Print out the list of users
@@ -103,8 +113,11 @@ fn chooseorsignup(conn: &Connection, username: String) -> Result<User> {
         for (idx, user) in users.iter().enumerate() {
             println!("{}. {}", idx + 1, user.username);
         }
-        println!("Enter the number beside the user you would like to login with.");
-        println!("Enter 0 for none of these and sign up as a new user instead.");
+        println!("\nEnter the number beside the user you would like to login with.");
+        println!(
+            "Enter 0 for none of these and sign up {} as a new user instead.",
+            username
+        );
     });
 
     // Return the selected user or sign up if they entered 0 and return the new user
@@ -117,7 +130,7 @@ fn chooseorsignup(conn: &Connection, username: String) -> Result<User> {
 
 /// Signup a new user and return that user in a result
 fn signup(conn: &Connection, username: String) -> Result<User> {
-    println!("Sign up a new user with username {}", username);
+    println!("\nSign up a new user with username {}", username);
     // Get name from user
     println!("What is your first name?");
     let firstname: String = read_or_quit();

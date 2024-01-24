@@ -46,7 +46,7 @@ pub fn balance_sheet_half_entry_point(
                 create_new_item(conn, user, &which_half, &mut categories, &mut items)
             }
             BalanceSheetSelection::RenameCategory => {
-                rename_category(conn, user, &which_half, &mut categories)
+                rename_category(conn, user, &which_half, &mut categories, &mut items)
             }
             BalanceSheetSelection::GoBack => return,
         }
@@ -340,7 +340,8 @@ fn initialize_balance_sheet(conn: &Connection, user: &User) {
                 timeline_deleted INTEGER NOT NULL,
                 PRIMARY KEY (item_lower, username_lower, timeline_created),
                 FOREIGN KEY (username_lower) REFERENCES users (username_lower),
-                FOREIGN KEY (category_lower, username_lower, is_asset) REFERENCES balance_categories (category_lower, username_lower, is_asset)
+                FOREIGN KEY (category_lower, username_lower, is_asset) REFERENCES balance_categories 
+                    (category_lower, username_lower, is_asset) ON UPDATE CASCADE
             );",
         (),
     )

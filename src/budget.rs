@@ -33,7 +33,7 @@ pub fn budget_half_entry_point(conn: &Connection, user: &User, which_half: Budge
                 create_new_item(conn, user, &which_half, &mut categories, &mut items)
             }
             BudgetSelection::RenameCategory => {
-                rename_category(conn, user, &which_half, &mut categories)
+                rename_category(conn, user, &which_half, &mut categories, &mut items)
             }
             BudgetSelection::GoBack => return,
         }
@@ -408,12 +408,13 @@ fn create_new_item(
 }
 
 /// Rename a category
-/// Mutates the categories Vector and updates the DB
+/// Mutates the categories and items Vectors and updates the DB
 fn rename_category(
     conn: &Connection,
     user: &User,
     which_half: &BudgetHalf,
     categories: &mut Vec<BudgetCategory>,
+    items: &mut Vec<BudgetItem>,
 ) {
     println!("\nRename a category ({}):", which_half.to_str());
     let mut idx: usize = 0;
@@ -455,18 +456,46 @@ fn rename_category(
                 if new_name.to_ascii_lowercase() == category.category_lower {
                     println!("That name is already in use as {}.", category.category);
                     println!("You cannot rename this category to the same name.");
+                    println!("Hit Enter to go back.");
+                    // Give the user a chance to acknowledge
+                    read_or_quit();
                     return;
                 }
             }
-            // Update the Vector and DB
+
             let old_cat_name_lower = String::from(&mut *categories[x - 1].category_lower);
+
+            // Update all items that have the category with the updated name
+            // This is necessary since they have both the key lowercase category AND the non-key proper capitalization category
+            // Note that the lowercase category will cascade with the next update below
+            for item in items {
+                if item.category_lower == old_cat_name_lower {
+                    item.category = new_name.clone();
+                    item.category_lower = new_name.to_ascii_lowercase();
+                }
+            }
+
+            conn.execute(
+                "UPDATE budget_items 
+                    SET category = ?1 
+                    WHERE username_lower = ?2 AND category_lower = ?3 AND is_income = ?4",
+                (
+                    &new_name,
+                    &user.username_lower,
+                    &old_cat_name_lower,
+                    &which_half.to_bool_int(),
+                ),
+            )
+            .expect("Error updating the budget items database");
+
+            // Update the Vector and DB
             categories[x - 1].category = new_name.clone();
             categories[x - 1].category_lower = new_name.to_ascii_lowercase();
 
             conn.execute(
                 "UPDATE budget_categories 
                 SET category = ?1, category_lower = ?2 
-                WHERE username_lower = ?3 AND category = ?4 AND is_income = ?5",
+                WHERE username_lower = ?3 AND category_lower = ?4 AND is_income = ?5",
                 (
                     &new_name,
                     &new_name.to_ascii_lowercase(),
@@ -810,7 +839,8 @@ fn initialize_budget(conn: &Connection, user: &User) {
                 timeline_deleted INTEGER NOT NULL,
                 PRIMARY KEY (item_lower, username_lower, timeline_created),
                 FOREIGN KEY (username_lower) REFERENCES users (username_lower),
-                FOREIGN KEY (category_lower, username_lower, is_income) REFERENCES budget_categories (category_lower, username_lower, is_income)
+                FOREIGN KEY (category_lower, username_lower, is_income) REFERENCES budget_categories 
+                    (category_lower, username_lower, is_income) ON UPDATE CASCADE
             );",
         (),
     )
