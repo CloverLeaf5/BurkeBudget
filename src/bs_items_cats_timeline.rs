@@ -261,29 +261,6 @@ pub fn rename_category(
 
             let old_cat_name_lower = String::from(&mut *categories[x - 1].category_lower);
 
-            // Update all items that have the category with the updated name
-            // This is necessary since they have both the key lowercase category AND the non-key proper capitalization category
-            // Note that the lowercase category will cascade with the next update below
-            for item in items {
-                if item.category_lower == old_cat_name_lower {
-                    item.category = new_name.clone();
-                    item.category_lower = new_name.to_ascii_lowercase();
-                }
-            }
-
-            conn.execute(
-                "UPDATE balance_items 
-                    SET category = ?1 
-                    WHERE username_lower = ?2 AND category_lower = ?3 AND is_asset = ?4",
-                (
-                    &new_name,
-                    &user.username_lower,
-                    &old_cat_name_lower,
-                    &which_half.to_bool_int(),
-                ),
-            )
-            .expect("Error updating the balance sheet items database");
-
             // Update the Vector and DB
             categories[x - 1].category = new_name.clone();
             categories[x - 1].category_lower = new_name.to_ascii_lowercase();
@@ -301,6 +278,29 @@ pub fn rename_category(
                 ),
             )
             .expect("Error updating the balance sheet categories database");
+
+            // Update all items that have the category with the updated name
+            // This is necessary since they have both the key lowercase category AND the non-key proper capitalization category
+            // Note that the lowercase category will cascade in the DB with the update above
+            for item in items {
+                if item.category_lower == old_cat_name_lower {
+                    item.category = new_name.clone();
+                    item.category_lower = new_name.to_ascii_lowercase();
+                }
+            }
+
+            conn.execute(
+                "UPDATE balance_items 
+                    SET category = ?1 
+                    WHERE username_lower = ?2 AND category_lower = ?3 AND is_asset = ?4",
+                (
+                    &new_name,
+                    &user.username_lower,
+                    &new_name.to_ascii_lowercase(),
+                    &which_half.to_bool_int(),
+                ),
+            )
+            .expect("Error updating the balance sheet items database");
         }
         x => panic!("Response {} is an error state. Exiting the program.", x),
     }
